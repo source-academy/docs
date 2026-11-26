@@ -41,6 +41,15 @@ export default defineConfig({
           { text: "Assessment Configuration", link: "/docs/assessment/README" },
         ],
       },
+      {
+        text: "Contributing",
+        items: [
+          {
+            text: "Cleaning up comments",
+            link: "/docs/contributing/comment-cleanup",
+          },
+        ],
+      },
     ],
 
     footer: {

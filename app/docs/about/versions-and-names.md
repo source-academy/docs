@@ -44,6 +44,6 @@ If you read "cadet" in code or in an old document, it means the Source Academy b
 
 ## How a version gets its name
 
-::: info To be confirmed by the maintainers
-Proposed: the team of the year chooses the name and adds one row to the table above, in the same pull request that adds the team to the [contributors page](https://sourceacademy.org/contributors). The contributors page then links here. This page is the one place where versions and their years are written down.
-:::
+The name is chosen by Martin Henz. Recently the core team has made suggestions, and the best one, as judged by Martin Henz, has won a coffee.
+
+When a name is chosen, add a row for it to the table above: this page is where the versions and their years are recorded. (The [contributors page](https://sourceacademy.org/contributors) of the frontend still lists them in its own text.)

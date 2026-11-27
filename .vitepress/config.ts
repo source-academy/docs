@@ -9,6 +9,9 @@ export default defineConfig({
   srcDir: "app",
   outDir: "dist",
 
+  // The BibTeX file in app/public is a download, not a page: the link checker does not know the extension.
+  ignoreDeadLinks: [/^\/source-academy\.bib$/],
+
   head: [
     [
       "link",
@@ -68,6 +71,10 @@ export default defineConfig({
             link: "/docs/contributing/comment-cleanup",
           },
         ],
+      },
+      {
+        text: "Publications",
+        items: [{ text: "Publications", link: "/docs/publications/" }],
       },
     ],
 

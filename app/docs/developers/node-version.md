@@ -25,7 +25,7 @@ A repository that uses Node has all of these, and nothing else that states a Nod
 
 1. **`.node-version`** with the line `24`. It is the single source in the repository. The major version only: a patch version in it is something to keep up to date in every repository for no gain.
 2. **Continuous integration** takes it from there: `actions/setup-node` with `node-version-file: .node-version`, not a number of its own.
-3. **`package.json`** has `"engines": { "node": ">=24" }`.
+3. **`package.json`** has `"engines": { "node": ">=24" }`, or a higher minimum where one of the repository's own dependencies needs it. Babel 8 declares `^22.18.0 || >=24.11.0`, so a repository that uses it, directly (the frontend) or through another tool (the plugins, through their coverage tool), says `">=24.11.0"`: with `>=24`, Node 24.0 to 24.10 would be accepted, where the tools do not run. This is the floor of the tools, not a pin: `.node-version` stays `24`.
 4. **`@types/node`** is at `^24`, the version that the code runs on.
 5. **The README** says in its build instructions that the repository needs Node 24, with a link to this page.
 6. **Renovate** (or Dependabot) does not raise Node or `@types/node` past 24 on its own. The next version is a decision, made here, and then made in every repository.
@@ -37,6 +37,8 @@ Any other repository with a real need for another version says why, in its READM
 ## Using it on your machine
 
 A version manager that reads `.node-version`, such as fnm or mise, selects the version when you enter the repository (check its setting for version files of other tools). With nvm, run `nvm use $(cat .node-version)`.
+
+The version file says `24`, and a version manager picks the latest 24.x that is **installed**. If you installed Node 24 a while ago you may have an older 24.x, and a few tools need a minimum minor version (point 3, `engines.node`). So after you enter a repository, update to the latest 24.x with your manager: `fnm install`, `mise upgrade node` (`mise install` does not: it only installs versions that are missing, so an old 24.x stays), or `nvm install $(cat .node-version)`. Installing is not always switching: then check with `node --version` that it says the version that the repository needs (24.11 or later where point 3 says so), and if it still shows the old one, switch to the new one (`fnm use`, `nvm use`) or open a new shell. Continuous integration is not affected: `setup-node` with `node-version-file` turns `24` into the latest 24.x. The version file stays at the major version (point 1): it names the version to run, not a minimum, and a minor version in it would have to be kept up to date in every repository.
 
 ## Changing the version
 

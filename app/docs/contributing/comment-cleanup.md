@@ -2,7 +2,7 @@
 
 This guide is for one job: going through existing code and removing comment clutter, in a pull request that changes comments and nothing else.
 
-It applies to every Source Academy repository. Each repository's `AGENTS.md` has the short rules for writing new comments, and the facts that differ from repository to repository: which files are generated, and which commands to run. This guide says how to judge the comments that are already there.
+It applies to every Source Academy repository. Each repository's `AGENTS.md` has the short rules for writing new comments, and the facts that differ from repository to repository: which files are generated, and which commands to run. This guide says how to judge the comments that are already there. If a repository has no `AGENTS.md` yet, see [When there is no `AGENTS.md`](#when-there-is-no-agents-md).
 
 ## What a cleanup pull request is
 
@@ -10,15 +10,23 @@ It applies to every Source Academy repository. Each repository's `AGENTS.md` has
 - **One file, or one folder, per pull request.** Aim for at most about 150 comment lines changed, so that a person can read all of it.
 - **Not in generated files.** The repository's `AGENTS.md` lists them.
 
+## When there is no `AGENTS.md`
+
+Not every repository has one yet (this documentation repository does not). Then use these defaults, and say in the pull request which you used:
+
+- **Generated files** are those whose first lines say so, those in `.gitignore`, and those that `.gitattributes` marks `linguist-generated`. When in doubt, ask in the issue.
+- **Checks** are the scripts of `package.json` (format, lint, test, build), or the commands in the README.
+- Writing the `AGENTS.md` is a good pull request of its own.
+
 ## For each comment
 
 Read the code first, then ask in this order. Stop at the first question that decides it.
 
 1. **Is it true?** If it contradicts the code, fix it or delete it. A wrong comment is worse than none.
-2. **Does it say why?** A reason, a constraint, an invariant, a workaround, a trap, the format of some data. If it only says what the next lines do, or tells the history ("previously", "used to", "fixed per review"), delete it.
-3. **Is it as short as it can be?** Shorten it to the reason. Drop issue and pull request numbers and the names of reviewers or review tools. Keep one `see #123` only if the issue holds context that the comment cannot carry.
-4. **Is it in the right place?** An explanation of a whole module's model belongs at the top of that module. Anything else longer than about ten lines belongs in a document, with a one-line pointer.
-5. **Does it document an exported function?** Keep it: documentation generators and editors show these to users. Fix the wording only.
+2. **Does it document an exported function, type or class?** Keep it, and only fix the wording: documentation generators and editors show these to users. This question comes before the next one, because such documentation often just says what the function does, and is still wanted.
+3. **Does it say why?** A reason, a constraint, an invariant, a workaround, a trap, the format of some data. If it only says what the next lines do, or tells the history ("previously", "used to", "fixed per review"), delete it.
+4. **Is it as short as it can be?** Shorten it to the reason. Drop issue and pull request numbers and the names of reviewers or review tools. Keep one `see #123` only if the issue holds context that the comment cannot carry.
+5. **Is it in the right place?** An explanation of a whole module's model belongs at the top of that module. Anything else longer than about ten lines belongs in a document, with a one-line pointer.
 
 When unsure, keep the comment and say so in the pull request.
 
@@ -46,15 +54,21 @@ Some comments are instructions to a tool, not text for people. Leave them exactl
 ## Before you open the pull request
 
 1. The repository's format, lint and test commands pass (see its `AGENTS.md`).
-2. The code is unchanged. For TypeScript, compile the base commit and your branch with comments removed, and compare the output:
+2. The code is unchanged. For TypeScript, print every file without its comments, once on the base commit and once on your branch, and compare. The printer keeps types, interfaces and imports; compiling to JavaScript would drop them, and a changed type could go unnoticed:
 
    ```bash
-   yarn tsc -p tsconfig.json --removeComments --outDir /tmp/before   # on the base commit
-   yarn tsc -p tsconfig.json --removeComments --outDir /tmp/after    # on your branch
-   diff -r /tmp/before /tmp/after
+   # on the base commit (> /tmp/before.txt), then on your branch (> /tmp/after.txt)
+   yarn node -e '
+   const ts = require("typescript"), fs = require("fs");
+   const printer = ts.createPrinter({ removeComments: true });
+   for (const f of process.argv.slice(1)) {
+     const sf = ts.createSourceFile(f, fs.readFileSync(f, "utf8"), ts.ScriptTarget.Latest, true);
+     console.log("//// " + f + "\n" + printer.printFile(sf));
+   }' $(git ls-files 'src/*.ts' 'src/*.tsx') > /tmp/before.txt
+   diff /tmp/before.txt /tmp/after.txt
    ```
 
-   No difference means that no code changed. This check does not cover directives, so leave those alone. A script that does the check for every language is planned.
+   No difference means that no code and no type changed. The printer normalizes whitespace, so a reformatting does not show here: the diff of your pull request does. The check does not cover directives (they are comments too), so leave those alone. A script that does the check for every language is planned.
 
 ## The pull request
 

@@ -7,19 +7,20 @@ failing, what is fixed, or "nothing changed"), so **an email arrives every month
 
 ## The checks
 
-| check        | fails when                                                   |
-| ------------ | ------------------------------------------------------------ |
-| `licence`    | the repository has no licence                                |
-| `readme`     | no README                                                    |
-| `protection` | the default branch has no branch protection and no ruleset   |
-| `alerts`     | there are open high or critical Dependabot alerts            |
-| `scanning`   | code scanning is not set up                                  |
-| `stale-prs`  | open pull requests older than six months                     |
-| `branches`   | more than 30 branches                                        |
-| `inactive`   | no commit on the default branch for over a year              |
-| `empty`      | the repository has no commits (nothing to check on a branch) |
+| check        | fails when                                                     |
+| ------------ | -------------------------------------------------------------- |
+| `licence`    | the repository has no licence                                  |
+| `readme`     | no README                                                      |
+| `protection` | the default branch has no branch protection and no ruleset     |
+| `alerts`     | there are open high or critical Dependabot alerts              |
+| `scanning`   | code scanning is not set up                                    |
+| `stale-prs`  | open pull requests older than six months                       |
+| `branches`   | more than 30 branches                                          |
+| `inactive`   | no commit on the default branch for over a year                |
+| `empty`      | the repository has no commits (nothing to check on a branch)   |
+| `cache`      | the Actions cache is above 80% of its limit (10 GB by default) |
 
-Not checked yet: whether the default branch builds. It needs the App's _Actions: read_ permission.
+The `cache` check needs the App's **Actions: read** permission, which the App has (granted on 27 November 2026) and the token step of `.github/workflows/org-health.yml` requests. It compares the size of a repository's Actions cache with its limit: the configured limit where GitHub reports one (a paid plan can raise it), else the default of 10 GB. If the permission is ever removed, the scan skips this one check, says so in the report, keeps its **last known result** (so nothing reads as fixed), and carries on. When you grant a new permission to the App, grant it first and request it in the workflow second: the token action asks for exactly the permissions it lists, and GitHub refuses a token that asks for one the App lacks, which would fail the whole scan. Not checked yet: whether the default branch builds; it needs the same permission.
 
 Only the checks and thresholds at the top of `scan.py` need changing to add or tune one. Keep the list short:
 a report that has to be read has few checks.
@@ -61,7 +62,8 @@ contributing guide, and the owner below.
 
 The scan reads other repositories with a short-lived token from the GitHub App **source-academy-health**
 (owned by the `source-academy` organisation; App ID 5949427). The App is **read-only** everywhere: administration
-(to read branch protection), contents, issues, pull requests, code scanning alerts, Dependabot alerts and metadata.
+(to read branch protection), contents, issues, pull requests, code scanning alerts, Dependabot alerts and metadata
+(and, once granted, Actions, for the cache check).
 It never writes: the report issue is written with the workflow's own `GITHUB_TOKEN`.
 
 - **Owner:** the organisation owners (currently @martin-henz).

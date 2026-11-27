@@ -81,6 +81,107 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.previous_state("token")
 
 
+class CacheCheck(unittest.TestCase):
+    GB = 2**30
+
+    def setUp(self):
+        scan.NOT_CHECKED.clear()
+
+    def gh_returning(self, usage_gb, limit_response):
+        def gh(path, token, paginate=False, absent=()):
+            if "/actions/cache/usage" in path:
+                return {"active_caches_size_in_bytes": int(usage_gb * self.GB)}
+            if "/actions/cache/storage-limit" in path:
+                if isinstance(limit_response, Exception):
+                    raise limit_response
+                return limit_response
+            if "/branches?" in path:
+                return [{"name": "main"}]
+            if "/community/profile" in path:
+                return {"files": {"readme": {}}}
+            if "/pulls?" in path or "/dependabot/alerts" in path:
+                return []
+            return None
+        return gh
+
+    def scan_repo_with(self, usage_gb, limit_response=None):
+        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
+        with mock.patch.object(scan, "gh", self.gh_returning(usage_gb, limit_response)):
+            return scan.scan_repo(repo, None)
+
+    def test_above_80_percent_of_the_default_limit_is_reported_with_its_size(self):
+        self.assertEqual(self.scan_repo_with(9.9)["cache"], "9.9 of 10 GB")
+
+    def test_below_80_percent_is_not_reported(self):
+        self.assertNotIn("cache", self.scan_repo_with(7.9))
+
+    def test_a_configured_larger_limit_is_used(self):
+        self.assertNotIn("cache", self.scan_repo_with(9.9, {"max_cache_size_gb": 150}))
+        self.assertEqual(self.scan_repo_with(130, {"max_cache_size_gb": 150})["cache"], "130.0 of 150 GB")
+
+    def test_where_no_limit_is_configured_the_default_is_used(self):
+        # gh() returns None for the expected answers (402: a paid feature; 404), and a response without the field is
+        # the same as no configured limit
+        self.assertEqual(self.scan_repo_with(9.9, None)["cache"], "9.9 of 10 GB")
+        self.assertEqual(self.scan_repo_with(9.9, {"unexpected": "shape"})["cache"], "9.9 of 10 GB")
+
+    def test_an_unexpected_failure_to_read_the_limit_stops_the_scan_not_a_guess(self):
+        with self.assertRaises(scan.ScanError):
+            self.scan_repo_with(9.9, scan.ScanError("gh api: Server Error (HTTP 500)"))
+
+    def test_the_402_of_a_free_plan_is_asked_for_as_an_expected_absence(self):
+        seen = {}
+
+        def gh(path, token, paginate=False, absent=()):
+            if "/storage-limit" in path:
+                seen["absent"] = absent
+            return None
+
+        with mock.patch.object(scan, "gh", gh):
+            scan.cache_limit_bytes("repos/o/r", None)
+        self.assertIn(402, seen["absent"])
+        self.assertIn(404, seen["absent"])
+        self.assertNotIn(403, seen["absent"])
+
+    def test_a_missing_app_permission_skips_this_check_and_says_so(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Resource not accessible by integration (HTTP 403)")):
+            self.assertIsNone(scan.cache_usage("repos/o/r", None))
+        self.assertIn("cache", scan.NOT_CHECKED)
+
+    def test_any_other_failure_still_stops_the_scan(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Server Error (HTTP 500)")):
+            with self.assertRaises(scan.ScanError):
+                scan.cache_usage("repos/o/r", None)
+
+    def test_the_report_names_a_check_that_could_not_be_made(self):
+        scan.NOT_CHECKED.add("cache")
+        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], {}, 3)
+        self.assertIn("Not checked", text)
+        self.assertIn("last known result", text)
+
+    def test_a_skipped_check_keeps_its_last_known_result_and_is_not_reported_as_fixed(self):
+        import contextlib
+        import io
+
+        def scan_repo(repo, token):
+            scan.NOT_CHECKED.add("cache")  # this month the App cannot read the cache
+            return {}
+
+        repos = [{"name": "r", "default_branch": "main", "archived": False, "visibility": "public"}]
+        before = {"cache": {"r": "9.9 of 10 GB"}}
+        out = io.StringIO()
+        with mock.patch.object(scan, "gh", return_value=repos), \
+             mock.patch.object(scan, "scan_repo", scan_repo), \
+             mock.patch.object(scan, "load_exceptions", return_value=({}, [])), \
+             mock.patch.object(scan, "previous_state", return_value=(5, before)), \
+             contextlib.redirect_stdout(out):
+            scan.scan(types.SimpleNamespace(dry_run=True, summary_file=None))
+        text = out.getvalue()
+        self.assertNotIn("Fixed since", text)
+        self.assertIn("`r` (9.9 of 10 GB)", text)  # still listed as it was last month
+        self.assertIn("Nothing changed", text)
+
+
 class OnlyPublicActiveRepositories(unittest.TestCase):
     """The report is public, so a non-public repository must never be scanned or named."""
 

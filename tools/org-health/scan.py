@@ -41,8 +41,14 @@ CHECKS = {
     "branches": "More than 30 branches",
     "inactive": "No push for over a year (archive, or say who maintains it)",
     "empty": "Empty repository, no commits (delete it, or push something)",
+    "cache": "Actions cache above 80% of its limit (builds slow down when it is evicted; see the cleanup workflow)",
 }
 MAX_BRANCHES = 30
+DEFAULT_CACHE_LIMIT_BYTES = 10 * 2**30  # the default size of a repository's Actions cache
+CACHE_WARN = 0.8
+# Checks that could not be made, for example because the GitHub App lacks a permission: the report says so,
+# and the scan carries on (one missing permission must not stop the whole monthly scan).
+NOT_CHECKED = set()
 STALE_DAYS = 180
 INACTIVE_DAYS = 365
 
@@ -102,6 +108,31 @@ def days(iso):
     return (TODAY - dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))).days
 
 
+def cache_limit_bytes(r, token):
+    """The size limit of a repository's Actions cache: the configured one where GitHub reports it (a paid plan can
+    raise it), else the default of 10 GB. Only the expected answers mean "no configured limit": 402 (the endpoint
+    is a paid feature) and 404. Any other failure stops the scan, as everywhere: a limit that could not be read
+    must not turn into a guess that makes a healthy repository look full."""
+    data = gh(f"{r}/actions/cache/storage-limit", token, absent=(402, 404))
+    gb = data.get("max_cache_size_gb") if isinstance(data, dict) else None
+    return int(gb * 2**30) if isinstance(gb, (int, float)) and gb > 0 else DEFAULT_CACHE_LIMIT_BYTES
+
+
+def cache_usage(r, token):
+    """(bytes used, limit in bytes) of a repository's Actions cache, or None if the App may not read it (it needs
+    Actions: read): then the check is recorded as not made, and the scan carries on."""
+    try:
+        usage = gh(f"{r}/actions/cache/usage", token)
+    except ScanError as e:
+        if "Resource not accessible by integration" not in str(e):
+            raise
+        NOT_CHECKED.add("cache")
+        return None
+    if not usage:
+        return None
+    return usage["active_caches_size_in_bytes"], cache_limit_bytes(r, token)
+
+
 def scan_repo(repo, token):
     """The failing checks of one repository, each with a short detail."""
     name, default = repo["name"], repo["default_branch"]
@@ -144,6 +175,9 @@ def scan_repo(repo, token):
         latest = gh(f"{r}/commits?sha={ref}&per_page=1", token, absent=(409,))  # 409: no commits
         if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
             failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
+    cache = cache_usage(r, token)
+    if cache is not None and cache[0] > CACHE_WARN * cache[1]:
+        failed["cache"] = f"{cache[0] / 2**30:.1f} of {cache[1] // 2**30} GB"
     return failed
 
 
@@ -164,11 +198,14 @@ def render(state, exceptions_used, expired, changes, repos_total):
     lines = [f"Scanned **{repos_total}** active repositories on {TODAY:%d %B %Y}. Read-only: "
              "[`tools/org-health`](https://github.com/source-academy/documentation/tree/main/tools/org-health).", ""]
     lines += ["| check | failing | change |", "| --- | --- | --- |"]
+    skipped = [CHECKS[c] for c in CHECKS if c in NOT_CHECKED]
     for c, title in CHECKS.items():
         n = len(state.get(c, {}))
         ch = changes.get(c, {"new": [], "fixed": []})
         delta = ", ".join(filter(None, [f"+{len(ch['new'])} new" if ch["new"] else "", f"-{len(ch['fixed'])} fixed" if ch["fixed"] else ""])) or "no change"
         lines.append(f"| {title} | {n} | {delta} |")
+    if skipped:
+        lines += ["", "**Not checked** (the GitHub App lacks a permission, see the README of `tools/org-health`; the table shows the last known result): " + "; ".join(skipped)]
     for c, title in CHECKS.items():
         repos = state.get(c, {})
         if not repos:
@@ -242,6 +279,10 @@ def scan(args):
     number, before = previous_state(write_token)
     had_before = bool(before)
     before = before or {}
+    for check in NOT_CHECKED:
+        # A check that could not be made keeps its last known result: it must not read as "fixed", and the baseline
+        # for the next scan must not lose it.
+        state[check] = dict(before.get(check, {}))
     changes = {c: {"new": sorted(set(state[c]) - set(before.get(c, {}))), "fixed": sorted(set(before.get(c, {})) - set(state[c]))} for c in CHECKS}
     if not had_before:
         changes = {}

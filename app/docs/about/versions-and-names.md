@@ -18,17 +18,17 @@ A version keeps its name until the next one is named. 2019 and 2021 had a leader
 
 ## What the words mean
 
-| Word                      | Meaning                                                                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Source Academy**        | The whole system: what students and educators use, and everything behind it. This is the name to use in text.                                                |
-| **Spell**, **Charm**, …   | A version of the system, named by the team of that year. A version name is used only when a specific version is meant.                                       |
-| **Source**                | The original name of the JavaScript sublanguages taught in the SICP JS book (Source §1 to §4). Not the same as Source Academy.                               |
-| **slang**                 | A language implementation for Source Academy, named after its language: `js-slang`, `py-slang`, `ocaml-slang`, …                                             |
-| **Conductor**             | The protocol and library through which the frontend (the host) runs a language implementation (an evaluator), which can live in a web worker or on a server. |
-| **Evaluator**             | A language implementation that speaks the Conductor protocol.                                                                                                |
-| **Frontend**, **backend** | The web application in the browser, and the server with the database, the courses and the assessments.                                                       |
-| **Grader**                | The service that runs submitted programs against the tests of an assessment.                                                                                 |
-| **Module**, **plugin**    | A library of extra functions with optional user interface (the `modules` repository), and an extension of the frontend (the `plugins` repository).           |
+| Word                      | Meaning                                                                                                                                                                 |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Source Academy**        | The whole system: what students and educators use, and everything behind it. This is the name to use in text.                                                           |
+| **Spell**, **Charm**, …   | A version of the system, named by the team of that year. A version name is used only when a specific version is meant.                                                  |
+| **Source**                | The original name of the JavaScript sublanguages taught in the SICP JS book (Source §1 to §4). They are now called JavaScript §1 to §4. Not the same as Source Academy. |
+| **slang**                 | A language implementation for Source Academy, named after its language: `js-slang`, `py-slang`, `ocaml-slang`, …                                                        |
+| **Conductor**             | The protocol and library through which the frontend (the host) runs a language implementation (an evaluator), which can live in a web worker or on a server.            |
+| **Evaluator**             | A language implementation that speaks the Conductor protocol.                                                                                                           |
+| **Frontend**, **backend** | The web application in the browser, and the server with the database, the courses and the assessments.                                                                  |
+| **Grader**                | The service that runs submitted programs against the tests of an assessment.                                                                                            |
+| **Module**, **plugin**    | A library of extra functions with optional user interface (the `modules` repository), and an extension of the frontend (the `plugins` repository).                      |
 
 ## Historical names in code
 

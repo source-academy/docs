@@ -48,6 +48,7 @@ export default defineConfig({
             text: "Writing a visualizer plugin",
             link: "/docs/developers/writing-a-visualizer-plugin",
           },
+          { text: "Node.js version", link: "/docs/developers/node-version" },
         ],
       },
     ],

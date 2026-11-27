@@ -39,6 +39,15 @@ export default defineConfig({
         items: [{ text: "Start Here", link: "/docs/intro" }],
       },
       {
+        text: "About",
+        items: [
+          {
+            text: "Versions and names",
+            link: "/docs/about/versions-and-names",
+          },
+        ],
+      },
+      {
         text: "Assessment Guide",
         items: [
           { text: "Assessment Configuration", link: "/docs/assessment/README" },

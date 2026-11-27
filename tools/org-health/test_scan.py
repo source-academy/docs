@@ -82,38 +82,19 @@ class ErrorsAreNotPasses(unittest.TestCase):
 
 
 class CacheCheck(unittest.TestCase):
+    GB = 2**30
+
     def setUp(self):
         scan.NOT_CHECKED.clear()
 
-    def test_a_cache_above_80_percent_is_reported_with_its_size(self):
-        usage = {"active_caches_size_in_bytes": int(9.9 * 2**30), "active_caches_count": 58}
-        with mock.patch.object(scan, "gh", return_value=usage):
-            self.assertEqual(scan.cache_bytes("repos/o/r", None), usage["active_caches_size_in_bytes"])
-        self.assertGreater(usage["active_caches_size_in_bytes"], scan.CACHE_WARN * scan.CACHE_LIMIT_BYTES)
-
-    def test_a_missing_app_permission_skips_this_check_and_says_so(self):
-        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Resource not accessible by integration (HTTP 403)")):
-            self.assertIsNone(scan.cache_bytes("repos/o/r", None))
-        self.assertIn("cache", scan.NOT_CHECKED)
-
-    def test_any_other_failure_still_stops_the_scan(self):
-        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Server Error (HTTP 500)")):
-            with self.assertRaises(scan.ScanError):
-                scan.cache_bytes("repos/o/r", None)
-
-    def test_the_report_names_a_check_that_could_not_be_made(self):
-        scan.NOT_CHECKED.add("cache")
-        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], {}, 3)
-        self.assertIn("Not checked", text)
-        self.assertIn("Actions cache", text)
-
-    def test_a_cache_failure_is_listed_per_repository(self):
-        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
-        usage = {"active_caches_size_in_bytes": int(9.9 * 2**30)}
-
+    def gh_returning(self, usage_gb, limit_response):
         def gh(path, token, paginate=False, absent=()):
             if "/actions/cache/usage" in path:
-                return usage
+                return {"active_caches_size_in_bytes": int(usage_gb * self.GB)}
+            if "/actions/cache/storage-limit" in path:
+                if isinstance(limit_response, Exception):
+                    raise limit_response
+                return limit_response
             if "/branches?" in path:
                 return [{"name": "main"}]
             if "/community/profile" in path:
@@ -121,10 +102,64 @@ class CacheCheck(unittest.TestCase):
             if "/pulls?" in path or "/dependabot/alerts" in path:
                 return []
             return None
+        return gh
 
-        with mock.patch.object(scan, "gh", gh):
-            failed = scan.scan_repo(repo, None)
-        self.assertEqual(failed["cache"], "9.9 of 10 GB")
+    def scan_repo_with(self, usage_gb, limit_response=None):
+        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
+        with mock.patch.object(scan, "gh", self.gh_returning(usage_gb, limit_response)):
+            return scan.scan_repo(repo, None)
+
+    def test_above_80_percent_of_the_default_limit_is_reported_with_its_size(self):
+        self.assertEqual(self.scan_repo_with(9.9)["cache"], "9.9 of 10 GB")
+
+    def test_below_80_percent_is_not_reported(self):
+        self.assertNotIn("cache", self.scan_repo_with(7.9))
+
+    def test_a_configured_larger_limit_is_used(self):
+        self.assertNotIn("cache", self.scan_repo_with(9.9, {"max_cache_size_gb": 150}))
+        self.assertEqual(self.scan_repo_with(130, {"max_cache_size_gb": 150})["cache"], "130.0 of 150 GB")
+
+    def test_when_the_limit_cannot_be_read_the_default_is_used(self):
+        self.assertEqual(self.scan_repo_with(9.9, scan.ScanError("gh api: Payment Required (HTTP 402)"))["cache"], "9.9 of 10 GB")
+        self.assertEqual(self.scan_repo_with(9.9, {"unexpected": "shape"})["cache"], "9.9 of 10 GB")
+
+    def test_a_missing_app_permission_skips_this_check_and_says_so(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Resource not accessible by integration (HTTP 403)")):
+            self.assertIsNone(scan.cache_usage("repos/o/r", None))
+        self.assertIn("cache", scan.NOT_CHECKED)
+
+    def test_any_other_failure_still_stops_the_scan(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Server Error (HTTP 500)")):
+            with self.assertRaises(scan.ScanError):
+                scan.cache_usage("repos/o/r", None)
+
+    def test_the_report_names_a_check_that_could_not_be_made(self):
+        scan.NOT_CHECKED.add("cache")
+        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], {}, 3)
+        self.assertIn("Not checked", text)
+        self.assertIn("last known result", text)
+
+    def test_a_skipped_check_keeps_its_last_known_result_and_is_not_reported_as_fixed(self):
+        import contextlib
+        import io
+
+        def scan_repo(repo, token):
+            scan.NOT_CHECKED.add("cache")  # this month the App cannot read the cache
+            return {}
+
+        repos = [{"name": "r", "default_branch": "main", "archived": False, "visibility": "public"}]
+        before = {"cache": {"r": "9.9 of 10 GB"}}
+        out = io.StringIO()
+        with mock.patch.object(scan, "gh", return_value=repos), \
+             mock.patch.object(scan, "scan_repo", scan_repo), \
+             mock.patch.object(scan, "load_exceptions", return_value=({}, [])), \
+             mock.patch.object(scan, "previous_state", return_value=(5, before)), \
+             contextlib.redirect_stdout(out):
+            scan.scan(types.SimpleNamespace(dry_run=True, summary_file=None))
+        text = out.getvalue()
+        self.assertNotIn("Fixed since", text)
+        self.assertIn("`r` (9.9 of 10 GB)", text)  # still listed as it was last month
+        self.assertIn("Nothing changed", text)
 
 
 class OnlyPublicActiveRepositories(unittest.TestCase):

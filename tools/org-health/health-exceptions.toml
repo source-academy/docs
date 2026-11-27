@@ -1,0 +1,13 @@
+# Exceptions to the monthly organisation scan (documentation#66).
+#
+# A repository that fails a check on purpose is listed here, with a reason and an expiry date. The scan then
+# stops reporting it; when the date passes, the check applies again and the report says so. Keep the reasons
+# true and the dates near (a year at most): an exception is a decision that is reviewed, not a way to hide.
+#
+# Checks: licence, readme, protection, alerts, scanning, stale-prs, branches, inactive
+#
+# [[exception]]
+# repo = "docs.sourceacademy.org"
+# check = "licence"
+# reason = "Built output of js-slang's specifications; the licence is that of the source repository."
+# expires = 2027-11-27

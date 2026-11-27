@@ -50,6 +50,16 @@ export default defineConfig({
           { text: "Assessment Configuration", link: "/docs/assessment/README" },
         ],
       },
+      {
+        text: "Developers",
+        items: [
+          {
+            text: "Writing a visualizer plugin",
+            link: "/docs/developers/writing-a-visualizer-plugin",
+          },
+          { text: "Node.js version", link: "/docs/developers/node-version" },
+        ],
+      },
     ],
 
     footer: {

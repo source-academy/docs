@@ -2,7 +2,8 @@
 
 A monthly, read-only scan of the `source-academy` organisation (documentation#66). It writes **one issue**,
 "Organisation health", edited in place: a table of checks, the repositories that fail each, and what changed
-since the last scan. A comment is added only when something is **newly failing**, so a quiet month is silent.
+since the last scan. Every month the issue is assigned to the duty holder and gets a short comment that @-mentions them (what is newly
+failing, what is fixed, or "nothing changed"), so **an email arrives every month, quiet or not**.
 
 ## The checks
 
@@ -31,6 +32,12 @@ python3 tools/org-health/scan.py --dry-run   # prints the report; writes nothing
 It uses your `gh` login, or `READ_TOKEN` if set. It takes a few minutes (about nine API calls per repository).
 On a pull request, and on a manual run with _dry_run_ ticked, the workflow only prints the report (to the job
 summary). Scheduled runs (the first of each month) and manual runs write the issue.
+
+To test the parts that decide what counts as healthy: `python3 -m unittest discover tools/org-health`.
+
+A failing API call is never counted as healthy: an expected absence (a feature that is off for a repository) is told
+apart from a real failure, which is retried and then **stops the scan before it writes anything**. A failed run is the
+alarm, through GitHub's own email about failed workflows.
 
 ## Exceptions
 

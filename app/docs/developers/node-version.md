@@ -30,7 +30,9 @@ A repository that uses Node has all of these, and nothing else that states a Nod
 5. **The README** says in its build instructions that the repository needs Node 24, with a link to this page.
 6. **Renovate** (or Dependabot) does not raise Node or `@types/node` past 24 on its own. The next version is a decision, made here, and then made in every repository.
 
-A repository with a real need for another version says why, in its README and in an issue; there is none now.
+**Code that runs in a host's own Node** is the one exception, and it is to point 4 only. A VS Code extension, or a language server that it starts, runs in the Node that VS Code brings, not in ours. Its `@types/node` follows the oldest VS Code that its `engines.vscode` allows, so that the types describe the runtime that the code really has; the build and CI still use Node 24. The README says which version the types follow.
+
+Any other repository with a real need for another version says why, in its README and in an issue; there is none now.
 
 ## Using it on your machine
 

@@ -107,6 +107,14 @@ class EmptyRepository(unittest.TestCase):
         self.assertNotIn("protection", failed)
         self.assertFalse([p for p in asked if "/branches/" in p or "/commits" in p])
 
+    def test_a_branch_name_is_encoded_in_the_urls(self):
+        _, asked = self.scan_with([{"name": "release#1/x"}], "release#1/x")
+        branch_calls = [p for p in asked if "/branches/" in p or "/commits?" in p]
+        self.assertTrue(branch_calls)
+        for p in branch_calls:
+            self.assertIn("release%231%2Fx", p)
+            self.assertNotIn("release#1", p)
+
     def test_a_repository_with_a_branch_is_not_empty(self):
         failed, _ = self.scan_with([{"name": "main"}], "main")
         self.assertNotIn("empty", failed)

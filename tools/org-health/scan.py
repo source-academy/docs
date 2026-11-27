@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 import tomllib
+import urllib.parse
 
 ORG = "source-academy"
 DUTY_HOLDER = "martin-henz"  # assigned and mentioned every month; change on handover (see README)
@@ -104,6 +105,7 @@ def days(iso):
 def scan_repo(repo, token):
     """The failing checks of one repository, each with a short detail."""
     name, default = repo["name"], repo["default_branch"]
+    ref = urllib.parse.quote(default or "", safe="")  # a branch name goes into a URL: # and % need encoding
     r = f"repos/{ORG}/{name}"
     failed = {}
     if not repo.get("license"):
@@ -118,8 +120,8 @@ def scan_repo(repo, token):
     if empty:
         failed["empty"] = ""
     else:
-        branch = gh(f"{r}/branches/{default}", token)
-        rules = gh(f"{r}/rules/branches/{default}", token, absent=(404,))
+        branch = gh(f"{r}/branches/{ref}", token)
+        rules = gh(f"{r}/rules/branches/{ref}", token, absent=(404,))
         if not ((branch and branch.get("protected")) or rules):
             failed["protection"] = ""
     alerts = gh(f"{r}/dependabot/alerts?state=open&severity=critical,high&per_page=100", token, paginate=True, absent=(403, 404))
@@ -139,7 +141,7 @@ def scan_repo(repo, token):
         failed["branches"] = str(len(branches))
     if not empty:
         # The last commit on the default branch, not `pushed_at`: that moves when anyone pushes a branch.
-        latest = gh(f"{r}/commits?sha={default}&per_page=1", token, absent=(409,))  # 409: no commits
+        latest = gh(f"{r}/commits?sha={ref}&per_page=1", token, absent=(409,))  # 409: no commits
         if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
             failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
     return failed

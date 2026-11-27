@@ -25,7 +25,7 @@ A repository that uses Node has all of these, and nothing else that states a Nod
 
 1. **`.node-version`** with the line `24`. It is the single source in the repository. The major version only: a patch version in it is something to keep up to date in every repository for no gain.
 2. **Continuous integration** takes it from there: `actions/setup-node` with `node-version-file: .node-version`, not a number of its own.
-3. **`package.json`** has `"engines": { "node": ">=24" }`.
+3. **`package.json`** has `"engines": { "node": ">=24" }`, or a higher minimum where one of the repository's own dependencies needs it. Babel 8 declares `^22.18.0 || >=24.11.0`, so a repository that uses it, directly (the frontend) or through another tool (the plugins, through their coverage tool), says `">=24.11.0"`: with `>=24`, Node 24.0 to 24.10 would be accepted, where the tools do not run. This is the floor of the tools, not a pin: `.node-version` stays `24`.
 4. **`@types/node`** is at `^24`, the version that the code runs on.
 5. **The README** says in its build instructions that the repository needs Node 24, with a link to this page.
 6. **Renovate** (or Dependabot) does not raise Node or `@types/node` past 24 on its own. The next version is a decision, made here, and then made in every repository.

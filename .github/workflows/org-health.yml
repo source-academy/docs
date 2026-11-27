@@ -1,0 +1,52 @@
+# The monthly organisation scan (documentation#66). It reads with the token of the read-only GitHub App
+# source-academy-health, and writes one issue ("Organisation health") with the workflow's own token.
+name: Organisation health
+
+on:
+  schedule:
+    - cron: "0 2 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the report without writing the issue
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - tools/org-health/**
+      - .github/workflows/org-health.yml
+
+permissions: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: source-academy
+          permission-administration: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+          permission-security-events: read
+          permission-vulnerability-alerts: read
+
+      - name: Scan the organisation
+        env:
+          READ_TOKEN: ${{ steps.app.outputs.token }}
+          WRITE_TOKEN: ${{ github.token }}
+          # A pull request, or a manual run that asks for it, only prints the report.
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run }}
+        run: |
+          flags=""
+          if [ "$DRY_RUN" = "true" ]; then flags="--dry-run"; fi
+          python3 tools/org-health/scan.py $flags --summary-file "$GITHUB_STEP_SUMMARY"

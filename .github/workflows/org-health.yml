@@ -1,0 +1,71 @@
+# The monthly organisation scan (documentation#66). It reads with the token of the read-only GitHub App
+# source-academy-health, and writes one issue ("Organisation health") with the workflow's own token.
+#
+# Pull requests run the unit tests only and get no secret: a pull request's own code must never run with the
+# App's token. The scan runs from the default branch (the schedule, or a manual run).
+name: Organisation health
+
+on:
+  schedule:
+    - cron: "0 2 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Print the report without writing the issue
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - tools/org-health/**
+      - .github/workflows/org-health.yml
+
+permissions: {}
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover tools/org-health
+      - run: python3 -m py_compile tools/org-health/scan.py
+
+  scan:
+    # Only from the default branch: this job has the App's secret.
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: source-academy
+          permission-actions: read
+          permission-administration: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+          permission-security-events: read
+          permission-vulnerability-alerts: read
+
+      - name: Scan the organisation
+        env:
+          READ_TOKEN: ${{ steps.app.outputs.token }}
+          WRITE_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          flags=""
+          if [ "$DRY_RUN" = "true" ]; then flags="--dry-run"; fi
+          python3 tools/org-health/scan.py $flags --summary-file "$GITHUB_STEP_SUMMARY"

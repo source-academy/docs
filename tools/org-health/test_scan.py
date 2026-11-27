@@ -52,6 +52,37 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.previous_state("token")
 
 
+class EmptyRepository(unittest.TestCase):
+    """An empty repository has no default branch; it must be reported, not abort the whole scan."""
+
+    def scan_with(self, branches, default):
+        asked = []
+
+        def gh(path, token, paginate=False, absent=()):
+            asked.append(path)
+            if "/branches?" in path:
+                return branches
+            if "/community/profile" in path:
+                return {"files": {"readme": {}}}
+            if "/pulls?" in path or "/dependabot/alerts" in path:
+                return []
+            return None
+
+        repo = {"name": "r", "default_branch": default, "license": {"spdx_id": "MIT"}}
+        with mock.patch.object(scan, "gh", gh):
+            return scan.scan_repo(repo, None), asked
+
+    def test_an_empty_repository_is_reported_and_does_not_stop_the_scan(self):
+        failed, asked = self.scan_with([], None)
+        self.assertIn("empty", failed)
+        self.assertNotIn("protection", failed)
+        self.assertFalse([p for p in asked if "/branches/" in p or "/commits" in p])
+
+    def test_a_repository_with_a_branch_is_not_empty(self):
+        failed, _ = self.scan_with([{"name": "main"}], "main")
+        self.assertNotIn("empty", failed)
+
+
 class NotificationBeforeBaseline(unittest.TestCase):
     """The baseline for the next scan is in the issue body: it must move only after the comment has been posted."""
 

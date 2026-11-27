@@ -39,6 +39,7 @@ CHECKS = {
     "stale-prs": "Open pull requests older than six months",
     "branches": "More than 30 branches",
     "inactive": "No push for over a year (archive, or say who maintains it)",
+    "empty": "Empty repository, no commits (delete it, or push something)",
 }
 MAX_BRANCHES = 30
 STALE_DAYS = 180
@@ -98,10 +99,17 @@ def scan_repo(repo, token):
     profile = gh(f"{r}/community/profile", token)
     if profile is not None and not (profile.get("files") or {}).get("readme"):
         failed["readme"] = ""
-    branch = gh(f"{r}/branches/{default}", token)
-    rules = gh(f"{r}/rules/branches/{default}", token, absent=(404,))
-    if not ((branch and branch.get("protected")) or rules):
-        failed["protection"] = ""
+    # An empty repository has no branches and no default branch to look at: it is a finding of its own,
+    # and the checks that need a branch are skipped for it.
+    branches = gh(f"{r}/branches?per_page=100", token, paginate=True)
+    empty = not branches or not default
+    if empty:
+        failed["empty"] = ""
+    else:
+        branch = gh(f"{r}/branches/{default}", token)
+        rules = gh(f"{r}/rules/branches/{default}", token, absent=(404,))
+        if not ((branch and branch.get("protected")) or rules):
+            failed["protection"] = ""
     alerts = gh(f"{r}/dependabot/alerts?state=open&severity=critical,high&per_page=100", token, paginate=True, absent=(403, 404))
     if alerts is None:  # Dependabot alerts are switched off for this repository
         failed["alerts"] = "alerts are off"
@@ -115,13 +123,13 @@ def scan_repo(repo, token):
     stale = [p for p in prs if days(p["created_at"]) > STALE_DAYS]
     if stale:
         failed["stale-prs"] = f"{len(stale)} of {len(prs)}"
-    branches = gh(f"{r}/branches?per_page=100", token, paginate=True)
     if len(branches) > MAX_BRANCHES:
         failed["branches"] = str(len(branches))
-    # The last commit on the default branch, not `pushed_at`: that moves when anyone pushes a branch.
-    latest = gh(f"{r}/commits?sha={default}&per_page=1", token, absent=(409,))  # 409: an empty repository
-    if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
-        failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
+    if not empty:
+        # The last commit on the default branch, not `pushed_at`: that moves when anyone pushes a branch.
+        latest = gh(f"{r}/commits?sha={default}&per_page=1", token, absent=(409,))  # 409: no commits
+        if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
+            failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
     return failed
 
 

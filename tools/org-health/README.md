@@ -7,16 +7,17 @@ failing, what is fixed, or "nothing changed"), so **an email arrives every month
 
 ## The checks
 
-| check        | fails when                                                 |
-| ------------ | ---------------------------------------------------------- |
-| `licence`    | the repository has no licence                              |
-| `readme`     | no README                                                  |
-| `protection` | the default branch has no branch protection and no ruleset |
-| `alerts`     | there are open high or critical Dependabot alerts          |
-| `scanning`   | code scanning is not set up                                |
-| `stale-prs`  | open pull requests older than six months                   |
-| `branches`   | more than 30 branches                                      |
-| `inactive`   | no commit on the default branch for over a year            |
+| check        | fails when                                                   |
+| ------------ | ------------------------------------------------------------ |
+| `licence`    | the repository has no licence                                |
+| `readme`     | no README                                                    |
+| `protection` | the default branch has no branch protection and no ruleset   |
+| `alerts`     | there are open high or critical Dependabot alerts            |
+| `scanning`   | code scanning is not set up                                  |
+| `stale-prs`  | open pull requests older than six months                     |
+| `branches`   | more than 30 branches                                        |
+| `inactive`   | no commit on the default branch for over a year              |
+| `empty`      | the repository has no commits (nothing to check on a branch) |
 
 Not checked yet: whether the default branch builds. It needs the App's _Actions: read_ permission.
 

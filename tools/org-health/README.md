@@ -42,6 +42,9 @@ A failing API call is never counted as healthy: an expected absence (a feature t
 apart from a real failure, which is retried and then **stops the scan before it writes anything**. A failed run is the
 alarm, through GitHub's own email about failed workflows.
 
+Only **public, active** repositories are scanned and named: the report goes to a public repository (an issue and a
+job summary), so a private or internal repository is never scanned. Archived repositories are left out too.
+
 ## Exceptions
 
 A repository that fails a check on purpose goes in [`health-exceptions.toml`](health-exceptions.toml), with a reason

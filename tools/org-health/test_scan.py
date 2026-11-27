@@ -81,6 +81,22 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.previous_state("token")
 
 
+class OnlyPublicActiveRepositories(unittest.TestCase):
+    """The report is public, so a non-public repository must never be scanned or named."""
+
+    def test_private_internal_and_archived_repositories_are_left_out(self):
+        listing = [
+            {"name": "open", "archived": False, "visibility": "public", "private": False},
+            {"name": "secret", "archived": False, "visibility": "private", "private": True},
+            {"name": "staff", "archived": False, "visibility": "internal", "private": False},
+            {"name": "old", "archived": True, "visibility": "public", "private": False},
+            {"name": "no-visibility-field-private", "archived": False, "private": True},
+            {"name": "no-visibility-field-public", "archived": False, "private": False},
+        ]
+        names = [r["name"] for r in scan.select_repos(listing)]
+        self.assertEqual(names, ["open", "no-visibility-field-public"])
+
+
 class EmptyRepository(unittest.TestCase):
     """An empty repository has no default branch; it must be reported, not abort the whole scan."""
 

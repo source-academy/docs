@@ -218,9 +218,17 @@ def monthly_comment(state, changes, repos_total, had_before):
     return "\n".join(lines)
 
 
+def select_repos(listing):
+    """The repositories that are scanned and named in the report: active (not archived) and **public**. The report
+    goes to a public repository (the issue, and the job summary of a public repository's workflow), so a private or
+    internal repository must never be scanned: its name and its security alerts would be published."""
+    return [r for r in listing
+            if not r["archived"] and (r.get("visibility") or ("private" if r.get("private") else "public")) == "public"]
+
+
 def scan(args):
     read_token, write_token = os.environ.get("READ_TOKEN"), os.environ.get("WRITE_TOKEN")
-    repos = [r for r in gh(f"orgs/{ORG}/repos?type=sources&per_page=100", read_token, paginate=True) if not r["archived"]]
+    repos = select_repos(gh(f"orgs/{ORG}/repos?type=sources&per_page=100", read_token, paginate=True))
     if not repos:
         raise ScanError("the organisation lists no repositories: check the token")
     active, expired = load_exceptions()

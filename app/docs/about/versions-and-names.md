@@ -22,7 +22,7 @@ A version keeps its name until the next one is named. 2019 and 2021 had a leader
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Source Academy**        | The whole system: what students and educators use, and everything behind it. This is the name to use in text.                                                |
 | **Spell**, **Charm**, …   | A version of the system, named by the team of that year. A version name is used only when a specific version is meant.                                       |
-| **Source**                | The family of languages taught in the SICP JS book (Source §1 to §4), and its Python counterpart. Not the same as Source Academy.                            |
+| **Source**                | The original name of the JavaScript sublanguages taught in the SICP JS book (Source §1 to §4). Not the same as Source Academy.                               |
 | **slang**                 | A language implementation for Source Academy, named after its language: `js-slang`, `py-slang`, `ocaml-slang`, …                                             |
 | **Conductor**             | The protocol and library through which the frontend (the host) runs a language implementation (an evaluator), which can live in a web worker or on a server. |
 | **Evaluator**             | A language implementation that speaks the Conductor protocol.                                                                                                |
@@ -48,4 +48,4 @@ The name is chosen by Martin Henz. Recently the core team has made suggestions, 
 
 When a name is chosen, add a row for it to the table above: this page is where the versions and their years are recorded. (The [contributors page](https://sourceacademy.org/contributors) of the frontend still lists them in its own text.)
 
-<!-- cspell:ignore Henz -->
+<!-- cspell:ignore Henz sublanguages -->

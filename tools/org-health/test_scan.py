@@ -81,6 +81,52 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.previous_state("token")
 
 
+class CacheCheck(unittest.TestCase):
+    def setUp(self):
+        scan.NOT_CHECKED.clear()
+
+    def test_a_cache_above_80_percent_is_reported_with_its_size(self):
+        usage = {"active_caches_size_in_bytes": int(9.9 * 2**30), "active_caches_count": 58}
+        with mock.patch.object(scan, "gh", return_value=usage):
+            self.assertEqual(scan.cache_bytes("repos/o/r", None), usage["active_caches_size_in_bytes"])
+        self.assertGreater(usage["active_caches_size_in_bytes"], scan.CACHE_WARN * scan.CACHE_LIMIT_BYTES)
+
+    def test_a_missing_app_permission_skips_this_check_and_says_so(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Resource not accessible by integration (HTTP 403)")):
+            self.assertIsNone(scan.cache_bytes("repos/o/r", None))
+        self.assertIn("cache", scan.NOT_CHECKED)
+
+    def test_any_other_failure_still_stops_the_scan(self):
+        with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Server Error (HTTP 500)")):
+            with self.assertRaises(scan.ScanError):
+                scan.cache_bytes("repos/o/r", None)
+
+    def test_the_report_names_a_check_that_could_not_be_made(self):
+        scan.NOT_CHECKED.add("cache")
+        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], {}, 3)
+        self.assertIn("Not checked", text)
+        self.assertIn("Actions cache", text)
+
+    def test_a_cache_failure_is_listed_per_repository(self):
+        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
+        usage = {"active_caches_size_in_bytes": int(9.9 * 2**30)}
+
+        def gh(path, token, paginate=False, absent=()):
+            if "/actions/cache/usage" in path:
+                return usage
+            if "/branches?" in path:
+                return [{"name": "main"}]
+            if "/community/profile" in path:
+                return {"files": {"readme": {}}}
+            if "/pulls?" in path or "/dependabot/alerts" in path:
+                return []
+            return None
+
+        with mock.patch.object(scan, "gh", gh):
+            failed = scan.scan_repo(repo, None)
+        self.assertEqual(failed["cache"], "9.9 of 10 GB")
+
+
 class OnlyPublicActiveRepositories(unittest.TestCase):
     """The report is public, so a non-public repository must never be scanned or named."""
 

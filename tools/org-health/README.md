@@ -18,8 +18,9 @@ failing, what is fixed, or "nothing changed"), so **an email arrives every month
 | `branches`   | more than 30 branches                                        |
 | `inactive`   | no commit on the default branch for over a year              |
 | `empty`      | the repository has no commits (nothing to check on a branch) |
+| `cache`      | the Actions cache is above 80% of its 10 GB limit            |
 
-Not checked yet: whether the default branch builds. It needs the App's _Actions: read_ permission.
+The `cache` check needs the App's **Actions: read** permission, in two steps, **in this order**: (1) an organisation owner grants it (App settings, _Permissions & events_, _Repository permissions_, _Actions_, _Read-only_; then accepts the changed permissions on the installation); (2) add `permission-actions: read` to the token step of `.github/workflows/org-health.yml`. Do not do step 2 first: the token action asks for exactly the permissions it lists, and GitHub refuses a token that asks for one the App does not have, which would fail the whole scan. Until both are done, the scan skips the check, says so in the report, and carries on. Not checked yet: whether the default branch builds; it needs the same permission.
 
 Only the checks and thresholds at the top of `scan.py` need changing to add or tune one. Keep the list short:
 a report that has to be read has few checks.
@@ -61,7 +62,8 @@ contributing guide, and the owner below.
 
 The scan reads other repositories with a short-lived token from the GitHub App **source-academy-health**
 (owned by the `source-academy` organisation; App ID 5949427). The App is **read-only** everywhere: administration
-(to read branch protection), contents, issues, pull requests, code scanning alerts, Dependabot alerts and metadata.
+(to read branch protection), contents, issues, pull requests, code scanning alerts, Dependabot alerts and metadata
+(and, once granted, Actions, for the cache check).
 It never writes: the report issue is written with the workflow's own `GITHUB_TOKEN`.
 
 - **Owner:** the organisation owners (currently @martin-henz).

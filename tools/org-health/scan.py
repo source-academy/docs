@@ -41,8 +41,14 @@ CHECKS = {
     "branches": "More than 30 branches",
     "inactive": "No push for over a year (archive, or say who maintains it)",
     "empty": "Empty repository, no commits (delete it, or push something)",
+    "cache": "Actions cache above 80% of its 10 GB limit (builds slow down when it is evicted; see the cleanup workflow)",
 }
 MAX_BRANCHES = 30
+CACHE_LIMIT_BYTES = 10 * 2**30  # the default size of a repository's Actions cache
+CACHE_WARN = 0.8
+# Checks that could not be made, for example because the GitHub App lacks a permission: the report says so,
+# and the scan carries on (one missing permission must not stop the whole monthly scan).
+NOT_CHECKED = set()
 STALE_DAYS = 180
 INACTIVE_DAYS = 365
 
@@ -102,6 +108,18 @@ def days(iso):
     return (TODAY - dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))).days
 
 
+def cache_bytes(r, token):
+    """The size of a repository's Actions cache, or None if the App may not read it (needs Actions: read)."""
+    try:
+        usage = gh(f"{r}/actions/cache/usage", token)
+    except ScanError as e:
+        if "Resource not accessible by integration" not in str(e):
+            raise
+        NOT_CHECKED.add("cache")
+        return None
+    return usage["active_caches_size_in_bytes"] if usage else None
+
+
 def scan_repo(repo, token):
     """The failing checks of one repository, each with a short detail."""
     name, default = repo["name"], repo["default_branch"]
@@ -144,6 +162,9 @@ def scan_repo(repo, token):
         latest = gh(f"{r}/commits?sha={ref}&per_page=1", token, absent=(409,))  # 409: no commits
         if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
             failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
+    used = cache_bytes(r, token)
+    if used is not None and used > CACHE_WARN * CACHE_LIMIT_BYTES:
+        failed["cache"] = f"{used / 2**30:.1f} of {CACHE_LIMIT_BYTES // 2**30} GB"
     return failed
 
 
@@ -164,11 +185,14 @@ def render(state, exceptions_used, expired, changes, repos_total):
     lines = [f"Scanned **{repos_total}** active repositories on {TODAY:%d %B %Y}. Read-only: "
              "[`tools/org-health`](https://github.com/source-academy/documentation/tree/main/tools/org-health).", ""]
     lines += ["| check | failing | change |", "| --- | --- | --- |"]
+    skipped = [CHECKS[c] for c in CHECKS if c in NOT_CHECKED]
     for c, title in CHECKS.items():
         n = len(state.get(c, {}))
         ch = changes.get(c, {"new": [], "fixed": []})
         delta = ", ".join(filter(None, [f"+{len(ch['new'])} new" if ch["new"] else "", f"-{len(ch['fixed'])} fixed" if ch["fixed"] else ""])) or "no change"
         lines.append(f"| {title} | {n} | {delta} |")
+    if skipped:
+        lines += ["", "**Not checked** (the GitHub App lacks a permission, see the README of `tools/org-health`): " + "; ".join(skipped)]
     for c, title in CHECKS.items():
         repos = state.get(c, {})
         if not repos:

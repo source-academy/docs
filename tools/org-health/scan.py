@@ -22,7 +22,7 @@ import urllib.parse
 
 ORG = "source-academy"
 DUTY_HOLDER = "martin-henz"  # assigned and mentioned every month; change on handover (see README)
-REPORT_REPO = f"{ORG}/documentation"
+REPORT_REPO = f"{ORG}/docs"
 LABEL = "org-health"
 TITLE = "Organisation health"
 MARKER = "<!-- org-health-state:"
@@ -196,7 +196,7 @@ def load_exceptions():
 
 def render(state, exceptions_used, expired, changes, repos_total):
     lines = [f"Scanned **{repos_total}** active repositories on {TODAY:%d %B %Y}. Read-only: "
-             "[`tools/org-health`](https://github.com/source-academy/documentation/tree/main/tools/org-health).", ""]
+             "[`tools/org-health`](https://github.com/source-academy/docs/tree/main/tools/org-health).", ""]
     lines += ["| check | failing | change |", "| --- | --- | --- |"]
     skipped = [CHECKS[c] for c in CHECKS if c in NOT_CHECKED]
     for c, title in CHECKS.items():

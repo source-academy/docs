@@ -182,6 +182,22 @@ class CacheCheck(unittest.TestCase):
         self.assertIn("Nothing changed", text)
 
 
+class FirstScanWording(unittest.TestCase):
+    def setUp(self):
+        scan.NOT_CHECKED.clear()
+
+    def test_the_first_scan_does_not_claim_that_nothing_changed(self):
+        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], {}, 3)
+        self.assertIn("first scan", text)
+        self.assertNotIn("no change", text)
+
+    def test_a_later_scan_says_no_change_when_nothing_changed(self):
+        changes = {c: {"new": [], "fixed": []} for c in scan.CHECKS}
+        text = scan.render({c: {} for c in scan.CHECKS}, {}, [], changes, 3)
+        self.assertIn("no change", text)
+        self.assertNotIn("first scan", text)
+
+
 class OnlyPublicActiveRepositories(unittest.TestCase):
     """The report is public, so a non-public repository must never be scanned or named."""
 

@@ -51,6 +51,15 @@ export default defineConfig({
           { text: "Node.js version", link: "/docs/developers/node-version" },
         ],
       },
+      {
+        text: "Contributing",
+        items: [
+          {
+            text: "Cleaning up comments",
+            link: "/docs/contributing/comment-cleanup",
+          },
+        ],
+      },
     ],
 
     footer: {

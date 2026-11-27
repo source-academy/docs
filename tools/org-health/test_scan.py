@@ -46,6 +46,35 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.gh("repos/x/y", None)
         self.assertEqual(len(calls), 3)
 
+    def test_a_403_that_says_the_feature_is_off_is_an_absence(self):
+        err = "gh: Dependabot alerts are disabled for this repository. (HTTP 403)"
+        with mock.patch.object(subprocess, "run", fake_run(1, err)):
+            self.assertIsNone(scan.gh("repos/x/y/dependabot/alerts", None, absent=(403, 404)))
+
+    def test_a_rate_limit_403_is_retried_then_stops_not_an_absence(self):
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            return types.SimpleNamespace(returncode=1, stdout="", stderr="gh: API rate limit exceeded for installation ID 1. (HTTP 403)")
+
+        with mock.patch.object(subprocess, "run", run):
+            with self.assertRaises(scan.ScanError):
+                scan.gh("repos/x/y/dependabot/alerts", None, absent=(403, 404))
+        self.assertEqual(len(calls), 3)
+
+    def test_a_secondary_rate_limit_is_not_an_absence_either(self):
+        err = "gh: You have exceeded a secondary rate limit. Please wait a few minutes before you try again. (HTTP 403)"
+        with mock.patch.object(subprocess, "run", fake_run(1, err)):
+            with self.assertRaises(scan.ScanError):
+                scan.gh("repos/x/y/code-scanning/analyses", None, absent=(403, 404))
+
+    def test_a_403_for_a_missing_app_permission_stops_the_scan(self):
+        err = "gh: Resource not accessible by integration (HTTP 403)"
+        with mock.patch.object(subprocess, "run", fake_run(1, err)):
+            with self.assertRaises(scan.ScanError):
+                scan.gh("repos/x/y/dependabot/alerts", None, absent=(403, 404))
+
     def test_a_failed_report_lookup_stops_instead_of_creating_a_duplicate(self):
         with mock.patch.object(subprocess, "run", fake_run(1, "gh: Bad credentials (HTTP 401)")):
             with self.assertRaises(scan.ScanError):

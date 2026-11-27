@@ -50,9 +50,17 @@ class ScanError(Exception):
     """A call failed in a way that the scan must not read as 'healthy': the scan stops and writes nothing."""
 
 
+# A 403 means three different things: a feature that is switched off for the repository (an expected absence),
+# a rate limit (wait and ask again), or an App that lacks a permission (a failure of the scan). Only the first is
+# an absence; telling them apart is by the message.
+RATE_LIMITED = re.compile(r"rate limit|abuse detection|too many requests", re.I)
+FEATURE_OFF = re.compile(r"disabled|not enabled|must be enabled|no analysis found|not found", re.I)
+
+
 def run_gh(cmd, token, absent=()):
-    """Runs `gh`, retrying transient failures. Returns stdout, or None if the call failed with a status in
-    `absent` (a feature that is off for this repository). Any other failure raises ScanError."""
+    """Runs `gh`, retrying transient failures (server errors, rate limits). Returns stdout, or None if the call
+    failed with a status in `absent` and, for a 403, with a message that says the feature is off. Any other
+    failure raises ScanError."""
     env = dict(os.environ, **({"GH_TOKEN": token} if token else {}))
     for attempt in range(3):
         r = subprocess.run(cmd, capture_output=True, text=True, env=env)
@@ -60,8 +68,12 @@ def run_gh(cmd, token, absent=()):
             return r.stdout
         m = re.search(r"HTTP (\d{3})", r.stderr)
         status = int(m.group(1)) if m else None
-        if status in absent:
+        rate_limited = status in (403, 429) and bool(RATE_LIMITED.search(r.stderr))
+        if status in absent and not rate_limited and (status != 403 or FEATURE_OFF.search(r.stderr)):
             return None
+        if rate_limited:
+            time.sleep(30 * (attempt + 1))  # a limit is lifted by waiting
+            continue
         if status is not None and status < 500 and status != 429:
             break  # a refusal will not change by asking again
         time.sleep(2 + 3 * attempt)

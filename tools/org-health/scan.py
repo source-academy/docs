@@ -41,7 +41,7 @@ CHECKS = {
     "branches": "More than 30 branches",
     "inactive": "No push for over a year (archive, or say who maintains it)",
     "empty": "Empty repository, no commits (delete it, or push something)",
-    "cache": "Actions cache above 80% of its 10 GB limit (builds slow down when it is evicted; see the cleanup workflow)",
+    "cache": "Actions cache above 80% of its limit (builds slow down when it is evicted; see the cleanup workflow)",
 }
 MAX_BRANCHES = 30
 DEFAULT_CACHE_LIMIT_BYTES = 10 * 2**30  # the default size of a repository's Actions cache
@@ -110,11 +110,10 @@ def days(iso):
 
 def cache_limit_bytes(r, token):
     """The size limit of a repository's Actions cache: the configured one where GitHub reports it (a paid plan can
-    raise it), else the default of 10 GB. A best effort: this lookup refines the check and must not stop the scan."""
-    try:
-        data = gh(f"{r}/actions/cache/storage-limit", token, absent=(402, 404))
-    except ScanError:
-        return DEFAULT_CACHE_LIMIT_BYTES
+    raise it), else the default of 10 GB. Only the expected answers mean "no configured limit": 402 (the endpoint
+    is a paid feature) and 404. Any other failure stops the scan, as everywhere: a limit that could not be read
+    must not turn into a guess that makes a healthy repository look full."""
+    data = gh(f"{r}/actions/cache/storage-limit", token, absent=(402, 404))
     gb = data.get("max_cache_size_gb") if isinstance(data, dict) else None
     return int(gb * 2**30) if isinstance(gb, (int, float)) and gb > 0 else DEFAULT_CACHE_LIMIT_BYTES
 

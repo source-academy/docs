@@ -119,9 +119,29 @@ class CacheCheck(unittest.TestCase):
         self.assertNotIn("cache", self.scan_repo_with(9.9, {"max_cache_size_gb": 150}))
         self.assertEqual(self.scan_repo_with(130, {"max_cache_size_gb": 150})["cache"], "130.0 of 150 GB")
 
-    def test_when_the_limit_cannot_be_read_the_default_is_used(self):
-        self.assertEqual(self.scan_repo_with(9.9, scan.ScanError("gh api: Payment Required (HTTP 402)"))["cache"], "9.9 of 10 GB")
+    def test_where_no_limit_is_configured_the_default_is_used(self):
+        # gh() returns None for the expected answers (402: a paid feature; 404), and a response without the field is
+        # the same as no configured limit
+        self.assertEqual(self.scan_repo_with(9.9, None)["cache"], "9.9 of 10 GB")
         self.assertEqual(self.scan_repo_with(9.9, {"unexpected": "shape"})["cache"], "9.9 of 10 GB")
+
+    def test_an_unexpected_failure_to_read_the_limit_stops_the_scan_not_a_guess(self):
+        with self.assertRaises(scan.ScanError):
+            self.scan_repo_with(9.9, scan.ScanError("gh api: Server Error (HTTP 500)"))
+
+    def test_the_402_of_a_free_plan_is_asked_for_as_an_expected_absence(self):
+        seen = {}
+
+        def gh(path, token, paginate=False, absent=()):
+            if "/storage-limit" in path:
+                seen["absent"] = absent
+            return None
+
+        with mock.patch.object(scan, "gh", gh):
+            scan.cache_limit_bytes("repos/o/r", None)
+        self.assertIn(402, seen["absent"])
+        self.assertIn(404, seen["absent"])
+        self.assertNotIn(403, seen["absent"])
 
     def test_a_missing_app_permission_skips_this_check_and_says_so(self):
         with mock.patch.object(scan, "gh", side_effect=scan.ScanError("gh api: Resource not accessible by integration (HTTP 403)")):

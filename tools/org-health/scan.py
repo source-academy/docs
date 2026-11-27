@@ -203,6 +203,8 @@ def render(state, exceptions_used, expired, changes, repos_total):
         n = len(state.get(c, {}))
         ch = changes.get(c, {"new": [], "fixed": []})
         delta = ", ".join(filter(None, [f"+{len(ch['new'])} new" if ch["new"] else "", f"-{len(ch['fixed'])} fixed" if ch["fixed"] else ""])) or "no change"
+        if not changes:  # no earlier report to compare with: "no change" would say something that was not checked
+            delta = "first scan"
         lines.append(f"| {title} | {n} | {delta} |")
     if skipped:
         lines += ["", "**Not checked** (the GitHub App lacks a permission, see the README of `tools/org-health`; the table shows the last known result): " + "; ".join(skipped)]

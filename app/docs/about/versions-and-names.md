@@ -1,9 +1,5 @@
 # Versions and names
 
-::: warning Draft
-The names and years are those of the [contributors page](https://sourceacademy.org/contributors). The notes on each version were read from the tags and commit history of the `frontend` and `backend` repositories and need a check by the people who were there.
-:::
-
 ## The versions
 
 A version keeps its name until the next one is named. 2019 and 2021 had a leadership team but **no new version**: Cadet carried on through 2019, and Knight through 2021.

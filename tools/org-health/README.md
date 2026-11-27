@@ -30,8 +30,10 @@ python3 tools/org-health/scan.py --dry-run   # prints the report; writes nothing
 ```
 
 It uses your `gh` login, or `READ_TOKEN` if set. It takes a few minutes (about nine API calls per repository).
-On a pull request, and on a manual run with _dry_run_ ticked, the workflow only prints the report (to the job
-summary). Scheduled runs (the first of each month) and manual runs write the issue.
+Pull requests run the unit tests only, **with no secret**: a pull request's own code must never run with the App's
+token. To try a change against the real organisation, run `--dry-run` on your machine. Scheduled runs (the first of
+each month) and manual runs on the default branch run the scan; a manual run with _dry_run_ ticked only prints the
+report (to the job summary).
 
 To test the parts that decide what counts as healthy: `python3 -m unittest discover tools/org-health`.
 
@@ -60,6 +62,11 @@ It never writes: the report issue is written with the workflow's own `GITHUB_TOK
 
 - **Owner:** the organisation owners (currently @martin-henz).
 - **Secrets:** `APP_PRIVATE_KEY` (secret) and the variables `APP_ID` and `APP_CLIENT_ID` of this repository.
+- **Who can use the secret:** anyone with write access to this repository can use its Actions secrets, for example
+  through a workflow on a branch of their own. The App is read-only and its token lives for an hour, but it reads every
+  repository's security alerts. When the key is next rotated, store it as a secret of an _environment_ (say `org-health`)
+  that only the default branch may use (environment settings, _Deployment branches_), and set `environment: org-health`
+  on the `scan` job.
 - **Rotate the key** (once a year, or when someone with access leaves): organisation settings, _Developer settings_,
   _GitHub Apps_, `source-academy-health`, _Credentials_, _Generate a private key_. Store it with
   `gh secret set APP_PRIVATE_KEY --repo source-academy/documentation < the-file.pem`, delete the file, then delete the

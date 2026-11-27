@@ -230,11 +230,13 @@ def scan(args):
         subprocess.run(["gh", "issue", "create", "--repo", REPORT_REPO, "--title", TITLE, "--label", LABEL, "--assignee", DUTY_HOLDER, "--body", body], check=True, env=env)
         print("created the issue")
         return
+    # The comment goes first. The baseline for the next scan is in the issue body, so it moves only after the
+    # notification has been posted: if the comment fails, the next run still sees what is new.
+    subprocess.run(["gh", "issue", "comment", str(number), "--repo", REPORT_REPO, "--body", comment], check=True, env=env)
     subprocess.run(["gh", "issue", "edit", str(number), "--repo", REPORT_REPO, "--body", body], check=True, env=env)
     assigned = subprocess.run(["gh", "issue", "edit", str(number), "--repo", REPORT_REPO, "--add-assignee", DUTY_HOLDER], capture_output=True, text=True, env=env)
     if assigned.returncode != 0:
         print(f"warning: could not assign {DUTY_HOLDER}: {assigned.stderr.strip()[:150]}", file=sys.stderr)
-    subprocess.run(["gh", "issue", "comment", str(number), "--repo", REPORT_REPO, "--body", comment], check=True, env=env)
     print("edited the issue and posted the monthly comment")
 
 

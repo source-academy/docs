@@ -52,6 +52,42 @@ class ErrorsAreNotPasses(unittest.TestCase):
                 scan.previous_state("token")
 
 
+class NotificationBeforeBaseline(unittest.TestCase):
+    """The baseline for the next scan is in the issue body: it must move only after the comment has been posted."""
+
+    def run_scan(self, fail_on=None):
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            if fail_on and fail_on in cmd and kw.get("check"):
+                raise subprocess.CalledProcessError(1, cmd)
+            return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        repo = [{"name": "a", "default_branch": "main", "archived": False}]
+        with mock.patch.object(scan, "gh", return_value=repo), \
+             mock.patch.object(scan, "scan_repo", return_value={}), \
+             mock.patch.object(scan, "load_exceptions", return_value=({}, [])), \
+             mock.patch.object(scan, "previous_state", return_value=(5, {"licence": {"x": ""}})), \
+             mock.patch.object(subprocess, "run", run):
+            try:
+                scan.scan(types.SimpleNamespace(dry_run=False, summary_file=None))
+                error = None
+            except subprocess.CalledProcessError as e:
+                error = e
+        return [c[2] for c in calls if c[:2] == ["gh", "issue"]], error
+
+    def test_the_comment_comes_before_the_edit(self):
+        verbs, error = self.run_scan()
+        self.assertIsNone(error)
+        self.assertLess(verbs.index("comment"), verbs.index("edit"))
+
+    def test_a_failed_comment_leaves_the_baseline_alone(self):
+        verbs, error = self.run_scan(fail_on="comment")
+        self.assertIsNotNone(error)
+        self.assertNotIn("edit", verbs)
+
+
 class MonthlyComment(unittest.TestCase):
     def setUp(self):
         self.state = {c: {} for c in scan.CHECKS}

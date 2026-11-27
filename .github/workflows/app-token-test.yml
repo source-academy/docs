@@ -1,0 +1,40 @@
+# Checks that the organisation's read-only GitHub App (source-academy-health) can read what the
+# monthly organisation scan needs (source-academy/documentation#66, #67). It prints counts only.
+name: App token test
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/app-token-test.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: source-academy
+          # Ask for no more than the scan reads, all read-only.
+          permission-administration: read
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+          permission-security-events: read
+          permission-vulnerability-alerts: read
+
+      - name: Read other repositories with the App's token
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          echo "repositories of the organisation: $(gh api 'orgs/source-academy/repos?per_page=100' --paginate --jq 'length' | paste -sd+ - | bc)"
+          echo "frontend branch protection readable: $(gh api repos/source-academy/frontend/branches/master/protection --silent && echo yes || echo NO)"
+          echo "js-slang open Dependabot alerts: $(gh api 'repos/source-academy/js-slang/dependabot/alerts?state=open&per_page=100' --jq 'length' || echo NO)"
+          echo "js-slang code scanning alerts (first page): $(gh api 'repos/source-academy/js-slang/code-scanning/alerts?state=open&per_page=100' --jq 'length' || echo NO)"
+          echo "frontend open pull requests (first page): $(gh api 'repos/source-academy/frontend/pulls?state=open&per_page=100' --jq 'length' || echo NO)"
+          echo "token can write? $(gh api -X POST repos/source-academy/documentation/issues/1/labels -f 'labels[]=x' --silent 2>/dev/null && echo 'YES (unexpected)' || echo 'no (expected)')"

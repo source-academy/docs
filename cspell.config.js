@@ -22,6 +22,8 @@ export default defineConfig({
   ],
   dictionaries: ["softwareTerms", "companies", "misc", "filetypes"],
   words: [
+    "rsbuild",
+    "Sourcecast",
     "autograder",
     "autograding",
     "Centralised",

@@ -68,7 +68,7 @@ Some comments are instructions to a tool, not text for people. Leave them exactl
    diff /tmp/before.txt /tmp/after.txt
    ```
 
-   **Open `/tmp/before.txt` first: if it is empty, no file was compared** and the check proves nothing (the list above takes every tracked TypeScript file of the repository, not only those under `src`). Leave out the generated files that the repository's `AGENTS.md` lists, in both runs, with a pathspec such as `':!src/parser/python-grammar.ts'` after the extensions.
+   **Open `/tmp/before.txt` first: if it is empty, no file was compared** and the check proves nothing (the list above takes every tracked TypeScript file of the repository, not only those under `src`). Leave out the generated files that the repository's `AGENTS.md` lists, in both runs, with an exclude pattern such as `':!src/parser/python-grammar.ts'` after the extensions.
 
    No difference means that no code and no type changed. The printer normalizes whitespace, so a reformatting does not show here: the diff of your pull request does. The check does not cover directives (they are comments too), so leave those alone. A script that does the check for every language is planned.
 

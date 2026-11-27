@@ -23,7 +23,7 @@ Not every repository has one yet (this documentation repository does not). Then 
 Read the code first, then ask in this order. Stop at the first question that decides it.
 
 1. **Is it true?** If it contradicts the code, fix it or delete it. A wrong comment is worse than none.
-2. **Does it document an exported function, type or class?** Keep it, and only fix the wording: documentation generators and editors show these to users. This question comes before the next one, because such documentation often just says what the function does, and is still wanted.
+2. **Does it document part of the public API?** That is an exported function, type, class or constant, or a public method or property of an exported class. Keep it, and only fix the wording: documentation generators and editors show these to users. This question comes before the next one, because such documentation often just says what the symbol is or does, and is still wanted.
 3. **Does it say why?** A reason, a constraint, an invariant, a workaround, a trap, the format of some data. If it only says what the next lines do, or tells the history ("previously", "used to", "fixed per review"), delete it.
 4. **Is it as short as it can be?** Shorten it to the reason. Drop issue and pull request numbers and the names of reviewers or review tools. Keep one `see #123` only if the issue holds context that the comment cannot carry.
 5. **Is it in the right place?** An explanation of a whole module's model belongs at the top of that module. Anything else longer than about ten lines belongs in a document, with a one-line pointer.

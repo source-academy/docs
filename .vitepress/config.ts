@@ -55,6 +55,15 @@ export default defineConfig({
         ],
       },
       {
+        text: "Contributing",
+        items: [
+          {
+            text: "Cleaning up comments",
+            link: "/docs/contributing/comment-cleanup",
+          },
+        ],
+      },
+      {
         text: "Publications",
         items: [{ text: "Publications", link: "/docs/publications/" }],
       },

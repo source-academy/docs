@@ -10,9 +10,7 @@ Publications about Source Academy, its languages, and the tools built with it, b
 
 ### 2026
 
-- Qixiang Zhang, Feng Ding, Daoxin Li, Martin Henz. _More Pie for the Little Typer: Accessible, Extensible, and AI-Guided Proof Education_. SPLASH-E 2026, pp. 13–23.
-
-<!-- TODO(#30): add the DOI of "More Pie for the Little Typer" once it is confirmed on the ACM Digital Library. -->
+- Qixiang Zhang, Feng Ding, Daoxin Li, Martin Henz. _More Pie for the Little Typer: Accessible, Extensible, and AI-Guided Proof Education_. SPLASH-E 2026, pp. 13–23. [DOI](https://doi.org/10.1145/3841644.3842687).
 
 ### 2023
 
@@ -34,10 +32,8 @@ All four at SPLASH-E 2021, the ACM SIGPLAN International Symposium on SPLASH-E, 
 
 ## Demos and talks
 
-- Martin Henz. _Source Academy: A Web-based Environment for Learning Programming with SICP_. Demonstration at the SIGCSE Technical Symposium 2023, Toronto. [Conference page](https://sigcse2023.sigcse.org/details/sigcse-ts-2023-demos/6/Source-Academy-A-Web-based-Environment-for-Learning-Programming-with-SICP).
+- Martin Henz. _Source Academy: A Web-based Environment for Learning Programming with SICP_. Demonstration at the SIGCSE Technical Symposium 2023, Toronto. [DOI](https://doi.org/10.1145/3545947.3573232) ([conference page](https://sigcse2023.sigcse.org/details/sigcse-ts-2023-demos/6/Source-Academy-A-Web-based-Environment-for-Learning-Programming-with-SICP)).
 - Martin Henz. _"Early X or Late X" Questions for Discussing Curricular Practices in CS1 and CS2_. Lightning talk at the SIGCSE Technical Symposium 2023, Toronto. [DOI](https://doi.org/10.1145/3545947.3573240).
-
-<!-- TODO(#30): add the DOI of the Source Academy demonstration paper after checking it on the ACM Digital Library. -->
 
 ## How to cite
 

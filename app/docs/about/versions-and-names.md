@@ -47,3 +47,5 @@ If you read "cadet" in code or in an old document, it means the Source Academy b
 The name is chosen by Martin Henz. Recently the core team has made suggestions, and the best one, as judged by Martin Henz, has won a coffee.
 
 When a name is chosen, add a row for it to the table above: this page is where the versions and their years are recorded. (The [contributors page](https://sourceacademy.org/contributors) of the frontend still lists them in its own text.)
+
+<!-- cspell:ignore Henz -->

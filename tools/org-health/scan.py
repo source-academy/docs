@@ -145,21 +145,50 @@ def cache_usage(r, token):
 # calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
 # unreachable site says nothing about a link.)
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
-CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.S)  # examples and commands, not links that a reader follows
+CODE = re.compile(r"```.*?(?:```|\Z)|~~~.*?(?:~~~|\Z)|`[^`\n]+`", re.S)  # examples and commands, not links that a reader follows
+LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
 LINK_SKIP = re.compile(r"^https?://(localhost\b|127\.|0\.0\.0\.0|example\.(com|org)\b|your-)|[{}$]", re.I)
 NO_SUCH_HOST = {c for c in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None)) if c is not None}
 LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
 DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
 
 
+def strip_indented_code(text):
+    """Blanks the indented code blocks: lines indented by four spaces or a tab after a blank line. Not inside a list,
+    where such lines continue an item (a full Markdown parser would tell exactly; this errs towards keeping links)."""
+    out, prev_blank, in_list = [], True, False
+    for line in text.split("\n"):
+        if not line.strip():
+            out.append(line)
+            prev_blank = True
+            continue
+        indent = len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip(" "))
+        if indent < 4:
+            in_list = bool(LIST_ITEM.match(line))
+        out.append("" if prev_blank and indent >= 4 and not in_list else line)
+        prev_blank = False
+    return "\n".join(out)
+
+
+def trim_url(url):
+    """A link as the reader follows it: without the `)` that closes a Markdown destination (a balanced pair is part of
+    the URL, and so is a trailing `_` or `!` inside the destination), and without the punctuation of the prose around it."""
+    closed = False
+    while url:
+        if url.endswith(")") and url.count("(") < url.count(")"):
+            url, closed = url[:-1], True
+        elif not closed and url[-1] in ".,;:!?*_":
+            url = url[:-1]
+        else:
+            break
+    return url
+
+
 def readme_links(text):
     """The absolute links of a README, without the placeholders of examples and without what is in code."""
     found = set()
-    for m in LINK.findall(CODE.sub(" ", text)):
-        url = m.rstrip(".,;:!?*_")
-        while url.endswith(")") and url.count("(") < url.count(")"):
-            url = url[:-1].rstrip(".,;:!?*_")  # the `)` that closes a Markdown destination; a balanced one is part of the URL
-        url = url.split("#")[0]
+    for m in LINK.findall(strip_indented_code(CODE.sub(" ", text))):
+        url = trim_url(m).split("#")[0]
         if url and not LINK_SKIP.search(url):
             found.add(url)
     return sorted(found)

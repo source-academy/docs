@@ -335,6 +335,22 @@ class ReadmeLinks(unittest.TestCase):
         text = "```sh\nvendor.sh https://example-base.org/py-slang file.js\n```\nUse `https://inline.org/x` or [real](https://real.org/r)."
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
 
+    def test_a_trailing_underscore_or_bang_inside_a_markdown_destination_is_part_of_the_url(self):
+        text = "[a](https://host.org/page_) [b](https://host.org/hi!) see https://p.org/q. (see https://u.org/x)."
+        self.assertEqual(scan.readme_links(text), ["https://host.org/hi!", "https://host.org/page_", "https://p.org/q", "https://u.org/x"])
+
+    def test_an_unclosed_fence_hides_the_rest_of_the_text(self):
+        text = "[real](https://real.org/r)\n\n```sh\ncurl https://example-cmd.org/x\n(no closing fence)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_an_indented_code_block_is_code_but_a_list_continuation_and_a_lazy_line_are_not(self):
+        text = ("Intro [one](https://one.org/a)\n\n"
+                "    curl https://indented-code.org/x\n\n"
+                "- an item\n\n"
+                "    continues the item: [two](https://two.org/b)\n\n"
+                "A paragraph\n    lazy continuation [three](https://three.org/c)\n")
+        self.assertEqual(scan.readme_links(text), ["https://one.org/a", "https://three.org/c", "https://two.org/b"])
+
     def ask_with(self, reason):
         import urllib.error
         def urlopen(req, timeout=0):

@@ -3,7 +3,8 @@
 # docs.sourceacademy.org is the deployment repository source-academy/docs.sourceacademy.org. Each source repository
 # publishes into folders of its own (js-slang into /javascript, py-slang into /python) with a deploy key and
 # keep_files, so that the publishers do not overwrite each other. This repository publishes the folders developer,
-# educator and learner at the root, and its files in docs-assets. It writes no root index.html: that is js-slang's.
+# educator and learner at the root, its files in docs-assets, and the landing page (the root index.html). js-slang used
+# to publish a redirect as the root index.html; it no longer does (source-academy/js-slang).
 #
 # Pull requests only build (no secret): a pull request's own code must never run with the deploy key.
 name: Deploy
@@ -52,7 +53,7 @@ jobs:
           publish_dir: dist
           external_repository: source-academy/docs.sourceacademy.org
           publish_branch: master
-          # Keep what the other publishers put there (/javascript, /python, the root page).
+          # Keep what the other publishers put there (/javascript, /python and the older folders).
           keep_files: true
           # Not the site's 404 page (it would become the whole domain's) nor VitePress's hash map.
           exclude_assets: .github,404.html,hashmap.json

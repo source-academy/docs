@@ -23,6 +23,10 @@ export default defineConfig({
   dictionaries: ["softwareTerms", "companies", "misc", "filetypes"],
   words: [
     "rsbuild",
+    "Behaviour",
+    "minmax",
+    "organisation",
+    "organisation's",
     "ADFS",
     "authorisation",
     "devserver",

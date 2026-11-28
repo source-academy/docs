@@ -5,9 +5,9 @@ export default defineConfig({
   description: "Documentation for Source Academy",
 
   lang: "en-US",
-  // Published at the root of https://docs.sourceacademy.org, in the folders developer, educator and learner (see
-  // .github/workflows/deploy.yml). The root page belongs to js-slang (a redirect to /javascript), and the root folders
-  // to the other publishers: this site has no root page, and keeps its own files under docs-assets.
+  // Published at the root of https://docs.sourceacademy.org: the landing page, and the folders developer, educator and
+  // learner (see .github/workflows/deploy.yml). The other root folders (/javascript, /python and the older ones) belong
+  // to other publishers, so this site keeps its own files under docs-assets.
   base: "/",
   assetsDir: "docs-assets",
   cleanUrls: true,
@@ -27,11 +27,16 @@ export default defineConfig({
 
   themeConfig: {
     logo: "/docs-assets/img/sourcepower.ico",
-    // The site has no root page (the root belongs to js-slang's redirect), so the logo goes to the front door.
-    logoLink: "https://about.sourceacademy.org/",
     siteTitle: "Source Academy Documentation",
 
     nav: [
+      {
+        text: "Languages",
+        items: [
+          { text: "JavaScript", link: "/javascript/", target: "_self" },
+          { text: "Python", link: "/python/", target: "_self" },
+        ],
+      },
       { text: "Developer", link: "/developer/" },
       { text: "Educator", link: "/educator/" },
       { text: "Learner", link: "/learner/" },

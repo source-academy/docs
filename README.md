@@ -4,7 +4,7 @@
 
 ## Quick Start
 
-Needs Node 24 (the version in `.node-version`; see the [Node.js version](app/docs/developers/node-version.md) page).
+Needs Node 24 (the version in `.node-version`; see the [Node.js version](app/developer/node-version.md) page).
 
 ```bash
 # Install dependencies

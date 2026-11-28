@@ -1,8 +1,9 @@
-# Builds the site and publishes it at https://docs.sourceacademy.org/developers/ (docs#79).
+# Builds the site and publishes it at https://docs.sourceacademy.org/developer/, /educator/ and /learner/ (docs#79).
 #
 # docs.sourceacademy.org is the deployment repository source-academy/docs.sourceacademy.org. Each source repository
-# publishes into a folder of its own (js-slang into /javascript, py-slang into /python) with a deploy key and
-# keep_files, so that the publishers do not overwrite each other. This repository publishes into /developers.
+# publishes into folders of its own (js-slang into /javascript, py-slang into /python) with a deploy key and
+# keep_files, so that the publishers do not overwrite each other. This repository publishes the folders developer,
+# educator and learner at the root, and its files in docs-assets. It writes no root index.html: that is js-slang's.
 #
 # Pull requests only build (no secret): a pull request's own code must never run with the deploy key.
 name: Deploy
@@ -44,13 +45,14 @@ jobs:
         with:
           name: site
           path: dist
-      - name: Publish to docs.sourceacademy.org/developers
+      - name: Publish to docs.sourceacademy.org
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           deploy_key: ${{ secrets.DOCS_DEPLOY_SSH_KEY }}
           publish_dir: dist
           external_repository: source-academy/docs.sourceacademy.org
           publish_branch: master
-          destination_dir: developers
-          # Keep what the other publishers put there (/javascript, /python, the root).
+          # Keep what the other publishers put there (/javascript, /python, the root page).
           keep_files: true
+          # Not the site's 404 page (it would become the whole domain's) nor VitePress's hash map.
+          exclude_assets: .github,404.html,hashmap.json

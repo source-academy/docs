@@ -372,6 +372,18 @@ class ReadmeLinks(unittest.TestCase):
         text = "Intro\n\n    echo example\n    https://dead.example.org/x\n\n    https://also-code.org/y\n\nThen [real](https://real.org/r)"
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
 
+    def test_a_fence_marker_in_an_indented_block_is_content_not_an_opener(self):
+        text = "Intro\n\n    ```\n    https://example-code.org/a\n\n[real](https://real.org/r)\n"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_fence_inside_a_list_item_may_be_indented_more(self):
+        text = "- item\n\n    ```sh\n    curl https://inside.org/x\n    ```\n\n[real](https://real.org/r)\n"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_html_comments_are_not_links_an_unclosed_one_hides_the_rest(self):
+        self.assertEqual(scan.readme_links("<!-- [old](https://dead.org/x) -->\n[real](https://real.org/r)"), ["https://real.org/r"])
+        self.assertEqual(scan.readme_links("[real](https://real.org/r)\n<!-- never closed [x](https://hidden.org/y)"), ["https://real.org/r"])
+
     def test_windows_line_endings_do_not_turn_a_closed_fence_into_an_open_one(self):
         text = "```sh\r\ncurl https://inside.org/a\r\n```\r\n\r\n[real](https://real.org/r)\r\n"
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])

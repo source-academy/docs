@@ -146,13 +146,10 @@ def cache_usage(r, token):
 # calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
 # unreachable site says nothing about a link.)
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
-CODE = re.compile(  # examples and commands, not links that a reader follows
-    # a fence: the opening and the closing marker each on a line of their own (a backtick fence has no backtick in its
-    # info string, or it is a code span); a code span: a run of backticks up to the next run of the same length
-    r"^[ \t]*(?P<f>`{3,})[^`\n]*\n.*?(?:^[ \t]*(?P=f)`*[ \t]*$|\Z)"
-    r"|^[ \t]*(?P<t>~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=t)~*[ \t]*$|\Z)"
-    r"|(?<!`)(?P<c>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=c)(?!`)",
-    re.S | re.M)
+# a code span: a run of backticks up to the next run of the same length (not across a blank line)
+SPAN = re.compile(r"(?<!`)(?P<c>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=c)(?!`)", re.S)
+COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.S)  # not rendered, so not a link that a reader follows
+FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
 LINK_SKIP = re.compile(
     r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)"
@@ -165,12 +162,21 @@ LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked on
 DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
 
 
-def strip_indented_code(text):
-    """Blanks the indented code blocks: lines indented by four spaces or a tab after a blank line, and the indented
-    lines that follow, until a line that is not indented. Not inside a list, where such lines continue an item (a full
-    Markdown parser would tell exactly; this errs towards keeping links)."""
-    out, prev_blank, in_list, in_code = [], True, False, False
+def strip_code_blocks(text):
+    """Blanks the code blocks: fenced ones (the opening and the closing marker each on a line of their own, an unclosed
+    one to the end of the text) and indented ones (four spaces or a tab after a blank line, and the indented lines that
+    follow). A fence may be indented by up to three spaces, or more inside a list item; four spaces outside a list
+    start an indented block, whose content may begin with a marker. Inside a list, indented lines continue an item
+    (a full Markdown parser would tell exactly; this errs towards keeping links)."""
+    out, prev_blank, in_list, in_code, fence = [], True, False, False, None
     for line in text.split("\n"):
+        if fence:  # inside a fenced block: everything is code until its closing marker
+            marker = line.strip()
+            if marker and set(marker) == {fence[0]} and len(marker) >= fence[1]:
+                fence = None
+            out.append("")
+            prev_blank = not line.strip()
+            continue
         if not line.strip():
             out.append(line)
             prev_blank = True
@@ -181,6 +187,14 @@ def strip_indented_code(text):
             in_list, in_code = bool(LIST_ITEM.match(line)), False
         elif prev_blank and not in_list:
             in_code = True
+        opener = FENCE.match(line)
+        if opener and not (indent >= 4 and in_code) and (indent < 4 or in_list):
+            marker, info = opener.groups()
+            if marker[0] != "`" or "`" not in info:  # a backtick fence has no backtick in its info line
+                fence = (marker[0], len(marker))
+                out.append("")
+                prev_blank = False
+                continue
         out.append("" if indent >= 4 and in_code else line)
         prev_blank = False
     return "\n".join(out)
@@ -238,7 +252,8 @@ def trim_url(url):
 def readme_links(text):
     """The absolute links of a README, without the placeholders of examples and without what is in code."""
     text = text.replace("\r\n", "\n").replace("\r", "\n")  # a README with Windows line endings
-    delimited, rest = delimited_links(strip_indented_code(CODE.sub(" ", text)))
+    text = SPAN.sub(" ", COMMENT.sub(" ", strip_code_blocks(text)))
+    delimited, rest = delimited_links(text)
     found = set()
     for url in delimited + [trim_url(m) for m in LINK.findall(rest)]:
         url = url.split("#")[0]

@@ -1,0 +1,36 @@
+# Dead links in this site and in this repository's README (docs#27): a broken link in a change fails the check.
+# The READMEs of the organisation's other repositories are checked by the monthly scan (tools/org-health).
+name: Links
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1" # the pages that this one links to can disappear without a change here
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Enable corepack for Yarn
+        run: corepack enable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - name: Check the links of the built site and the README
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --config lychee.toml --no-progress
+            --root-dir ${{ github.workspace }}/dist --fallback-extensions html
+            'dist/**/*.html' README.md
+          fail: true

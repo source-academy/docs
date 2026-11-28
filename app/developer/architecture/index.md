@@ -11,7 +11,7 @@ A learner's browser runs the **frontend**. The frontend knows no language and no
 <svg viewBox="0 0 760 440" role="img" aria-labelledby="arch-title arch-desc" style="width:100%;height:auto;font-family:var(--vp-font-family-base);font-size:13px">
 <title id="arch-title">The parts of Source Academy and how they connect</title>
 <desc id="arch-desc">The frontend in the browser loads evaluators and plugins named by three directories, runs an evaluator in a Web Worker over Conductor, and talks to the backend, which sends submissions to the grader.</desc>
-<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--vp-c-text-2)"/></marker></defs>
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--vp-c-text-3)"/></marker></defs>
 <rect x="10" y="10" width="470" height="305" rx="10" fill="none" stroke="var(--vp-c-divider)" stroke-dasharray="5 4"/>
 <text x="24" y="304" fill="var(--vp-c-text-2)">The learner's browser</text>
 <rect x="30" y="60" width="200" height="90" rx="8" fill="var(--vp-c-bg-soft)" stroke="var(--vp-c-brand-1)" stroke-width="2"/>
@@ -29,11 +29,11 @@ A learner's browser runs the **frontend**. The frontend knows no language and no
 <text x="365.0" y="225" text-anchor="middle" fill="var(--vp-c-text-1)" font-weight="600">Modules</text>
 <text x="365.0" y="247" text-anchor="middle" fill="var(--vp-c-text-2)">bundles and tabs</text>
 <text x="365.0" y="265" text-anchor="middle" fill="var(--vp-c-text-2)">that programs import</text>
-<line x1="232" y1="105" x2="268" y2="105" stroke="var(--vp-c-text-2)" stroke-width="1.5" marker-start="url(#arch-arrow)" marker-end="url(#arch-arrow)"/>
+<line x1="232" y1="105" x2="268" y2="105" stroke="var(--vp-c-text-3)" stroke-width="1.5" marker-start="url(#arch-arrow)" marker-end="url(#arch-arrow)"/>
 <text x="250" y="56" text-anchor="middle" fill="var(--vp-c-text-2)" font-size="11">Conductor</text>
-<line x1="130" y1="152" x2="130" y2="193" stroke="var(--vp-c-text-2)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+<line x1="130" y1="152" x2="130" y2="193" stroke="var(--vp-c-text-3)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
 <text x="138" y="176" text-anchor="start" fill="var(--vp-c-text-2)" font-size="11">loads plugins, shows tabs</text>
-<line x1="365" y1="152" x2="365" y2="193" stroke="var(--vp-c-text-2)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+<line x1="365" y1="152" x2="365" y2="193" stroke="var(--vp-c-text-3)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
 <text x="373" y="176" text-anchor="start" fill="var(--vp-c-text-2)" font-size="11">import</text>
 <rect x="500" y="60" width="250" height="215" rx="10" fill="none" stroke="var(--vp-c-divider)" stroke-dasharray="5 4"/>
 <text x="514" y="82" fill="var(--vp-c-text-2)">Static JSON on GitHub Pages</text>
@@ -43,7 +43,7 @@ A learner's browser runs the **frontend**. The frontend knows no language and no
 <text x="625" y="180" text-anchor="middle" fill="var(--vp-c-text-1)">Plugin directory</text>
 <rect x="520" y="208" width="210" height="46" rx="8" fill="var(--vp-c-bg-soft)" stroke="var(--vp-c-divider)" stroke-width="2"/>
 <text x="625" y="236" text-anchor="middle" fill="var(--vp-c-text-1)">Modules directory</text>
-<path d="M 500 70 L 490 70 L 490 34 L 130 34 L 130 58" fill="none" stroke="var(--vp-c-text-2)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arch-arrow)"/>
+<path d="M 500 70 L 490 70 L 490 34 L 130 34 L 130 58" fill="none" stroke="var(--vp-c-text-3)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arch-arrow)"/>
 <text x="310" y="28" text-anchor="middle" fill="var(--vp-c-text-2)" font-size="11">the frontend reads the directories at run time</text>
 <rect x="30" y="350" width="170" height="80" rx="8" fill="var(--vp-c-bg-soft)" stroke="var(--vp-c-brand-1)" stroke-width="2"/>
 <text x="115.0" y="380" text-anchor="middle" fill="var(--vp-c-text-1)" font-weight="600">Backend</text>
@@ -52,9 +52,9 @@ A learner's browser runs the **frontend**. The frontend knows no language and no
 <text x="375.0" y="380" text-anchor="middle" fill="var(--vp-c-text-1)" font-weight="600">Grader</text>
 <text x="375.0" y="402" text-anchor="middle" fill="var(--vp-c-text-2)">AWS Lambda,</text>
 <text x="375.0" y="420" text-anchor="middle" fill="var(--vp-c-text-2)">vendored evaluators</text>
-<path d="M 30 105 L 20 105 L 20 390 L 28 390" fill="none" stroke="var(--vp-c-text-2)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+<path d="M 30 105 L 20 105 L 20 390 L 28 390" fill="none" stroke="var(--vp-c-text-3)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
 <text x="36" y="338" text-anchor="start" fill="var(--vp-c-text-2)" font-size="11">HTTPS API</text>
-<line x1="202" y1="390" x2="288" y2="390" stroke="var(--vp-c-text-2)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
+<line x1="202" y1="390" x2="288" y2="390" stroke="var(--vp-c-text-3)" stroke-width="1.5" marker-end="url(#arch-arrow)"/>
 <text x="245" y="382" text-anchor="middle" fill="var(--vp-c-text-2)" font-size="11">submission</text>
 </svg>
 

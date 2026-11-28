@@ -1,0 +1,56 @@
+# Builds the site and publishes it at https://docs.sourceacademy.org/developers/ (docs#79).
+#
+# docs.sourceacademy.org is the deployment repository source-academy/docs.sourceacademy.org. Each source repository
+# publishes into a folder of its own (js-slang into /javascript, py-slang into /python) with a deploy key and
+# keep_files, so that the publishers do not overwrite each other. This repository publishes into /developers.
+#
+# Pull requests only build (no secret): a pull request's own code must never run with the deploy key.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Enable corepack for Yarn
+        run: corepack enable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'pull_request'
+        with:
+          name: site
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: dist
+      - name: Publish to docs.sourceacademy.org/developers
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
+        with:
+          deploy_key: ${{ secrets.DOCS_DEPLOY_SSH_KEY }}
+          publish_dir: dist
+          external_repository: source-academy/docs.sourceacademy.org
+          publish_branch: master
+          destination_dir: developers
+          # Keep what the other publishers put there (/javascript, /python, the root).
+          keep_files: true

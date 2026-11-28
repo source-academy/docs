@@ -10,15 +10,21 @@ added only when something is newly failing, so a quiet month is silent.
 """
 
 import argparse
+import base64
+import concurrent.futures
 import datetime as dt
+import html
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
 import tomllib
+import urllib.error
 import urllib.parse
+import urllib.request
 
 ORG = "source-academy"
 DUTY_HOLDER = "martin-henz"  # assigned and mentioned every month; change on handover (see README)
@@ -42,6 +48,7 @@ CHECKS = {
     "inactive": "No push for over a year (archive, or say who maintains it)",
     "empty": "Empty repository, no commits (delete it, or push something)",
     "cache": "Actions cache above 80% of its limit (builds slow down when it is evicted; see the cleanup workflow)",
+    "links": "README with dead links (a link that answers 404 or 410, or whose host does not exist)",
 }
 MAX_BRANCHES = 30
 DEFAULT_CACHE_LIMIT_BYTES = 10 * 2**30  # the default size of a repository's Actions cache
@@ -133,6 +140,179 @@ def cache_usage(r, token):
     return usage["active_caches_size_in_bytes"], cache_limit_bytes(r, token)
 
 
+# Links in READMEs. The network is noisy, so only a definite sign counts as dead: the answer 404 or 410, or a host
+# that does not exist, twice in a row. A site that refuses automated clients (403, 429), a timeout, a TLS error or a
+# server error is not reported: if the page is really gone, a later scan finds it. (This differs on purpose from the
+# calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
+# unreachable site says nothing about a link.)
+LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
+# a code span: a run of backticks up to the next run of the same length (not across a blank line)
+SPAN = re.compile(r"(?<!`)(?P<c>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=c)(?!`)", re.S)
+COMMENT = re.compile(r"<!--.*?(?:-->|\Z)", re.S)  # not rendered, so not a link that a reader follows
+FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
+LINK_SKIP = re.compile(
+    r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)"
+    r"|\{[^}]*\}|\$\{",  # {id} and ${VAR}: a template, not an address
+    re.I)
+ANGLE = re.compile(r"<(https?://[^\s<>]+)>")  # an autolink
+ATTR = re.compile(r"""(?:href|src)\s*=\s*(?:"(https?://[^"\s]+)"|'(https?://[^'\s]+)'|(https?://[^\s"'<>`]+))""", re.I)  # an HTML attribute
+NO_SUCH_HOST = {c for c in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None)) if c is not None}
+LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
+DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
+
+
+def strip_code_blocks(text):
+    """Blanks the code blocks: fenced ones (the opening and the closing marker each on a line of their own, an unclosed
+    one to the end of the text) and indented ones (four spaces or a tab after a blank line, and the indented lines that
+    follow). A fence may be indented by up to three spaces, or more inside a list item; four spaces outside a list
+    start an indented block, whose content may begin with a marker. Inside a list, indented lines continue an item
+    (a full Markdown parser would tell exactly; this errs towards keeping links)."""
+    out, prev_blank, in_list, in_code, fence = [], True, False, False, None
+    for line in text.split("\n"):
+        if fence:  # inside a fenced block: everything is code until its closing marker
+            marker = line.strip()
+            if marker and set(marker) == {fence[0]} and len(marker) >= fence[1]:
+                fence = None
+            out.append("")
+            prev_blank = not line.strip()
+            continue
+        if not line.strip():
+            out.append(line)
+            prev_blank = True
+            continue
+        expanded = line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(" "))
+        if indent < 4:
+            in_list, in_code = bool(LIST_ITEM.match(line)), False
+        elif prev_blank and not in_list:
+            in_code = True
+        opener = FENCE.match(line)
+        if opener and not (indent >= 4 and in_code) and (indent < 4 or in_list):
+            marker, info = opener.groups()
+            if marker[0] != "`" or "`" not in info:  # a backtick fence has no backtick in its info line
+                fence = (marker[0], len(marker))
+                out.append("")
+                prev_blank = False
+                continue
+        out.append("" if indent >= 4 and in_code else line)
+        prev_blank = False
+    return "\n".join(out)
+
+
+def delimited_links(text):
+    """(the links that sit between delimiters, the text without them). Between `<` and `>`, between quotes, or as the
+    destination of a Markdown link (up to the `)` that closes it, with balanced pairs inside), a link is exactly what is
+    written: nothing is trimmed from it."""
+    found = []
+
+    def take(m):
+        found.append(next(g for g in m.groups() if g))
+        return " "
+
+    def take_attr(m):
+        found.append(html.unescape(next(g for g in m.groups() if g)))  # href="…a&amp;b" is …a&b
+        return " "
+    text = ATTR.sub(take_attr, ANGLE.sub(take, text))
+    out, i = [], 0
+    while True:
+        j = text.find("](http", i)
+        if j < 0:
+            out.append(text[i:])
+            break
+        out.append(text[i:j + 1])
+        k, depth = j + 2, 0
+        while k < len(text) and not text[k].isspace():
+            if text[k] == "(":
+                depth += 1
+            elif text[k] == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            k += 1
+        found.append(html.unescape(text[j + 2:k]))
+        out.append(" ")
+        i = k + 1
+    return found, "".join(out)
+
+
+def trim_url(url):
+    """A link written in running text, as the reader follows it: without the punctuation of the sentence around it, and
+    without a closing parenthesis that has no opening one (a balanced pair is part of the URL)."""
+    while url:
+        if url.endswith(")") and url.count("(") < url.count(")"):
+            url = url[:-1]
+        elif url[-1] in ".,;:!?*_":
+            url = url[:-1]
+        else:
+            break
+    return url
+
+
+def readme_links(text):
+    """The absolute links of a README, without the placeholders of examples and without what is in code."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")  # a README with Windows line endings
+    text = SPAN.sub(" ", COMMENT.sub(" ", strip_code_blocks(text)))
+    delimited, rest = delimited_links(text)
+    found = set()
+    for url in delimited + [trim_url(m) for m in LINK.findall(rest)]:
+        url = url.split("#")[0]
+        if url and not LINK_SKIP.search(url):
+            found.add(url)
+    return sorted(found)
+
+
+def http_status(url, timeout=15):
+    """The HTTP status of a URL (redirects followed); "dns" for a host that does not exist; None for any other failure
+    (timeout, TLS...). A refused or mis-answered HEAD is asked again with GET."""
+    def ask(method):
+        req = urllib.request.Request(url, method=method, headers={"User-Agent": "source-academy-health-scan"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+        except urllib.error.URLError as e:
+            # Only "no such host" is a definite sign: a resolver that is unavailable or times out (EAI_AGAIN) is noise.
+            gone = isinstance(e.reason, socket.gaierror) and e.reason.errno in NO_SUCH_HOST
+            return "dns" if gone else None
+        except Exception:
+            return None
+    status = ask("HEAD")
+    if status == "dns" or (isinstance(status, int) and status < 400):
+        return status
+    return ask("GET")
+
+
+def is_dead(url, fetch=None, sleep=time.sleep):
+    """True only if the link answers 404 or 410, or its host does not exist, on two tries."""
+    fetch = fetch or http_status
+    for attempt in range(2):
+        if fetch(url) not in (404, 410, "dns"):
+            return False
+        if attempt == 0:
+            sleep(2)
+    return True
+
+
+def dead_links(text):
+    """The dead links of a README text."""
+    urls = readme_links(text)
+    todo = [u for u in urls if u not in LINK_CACHE]
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        for u, dead in zip(todo, pool.map(is_dead, todo)):
+            LINK_CACHE[u] = dead
+    return [u for u in urls if LINK_CACHE[u]]
+
+
+def readme_text(r, token):
+    """The README of a repository, or None if it has none."""
+    data = gh(f"{r}/readme", token, absent=(404,))
+    if not isinstance(data, dict) or data.get("encoding") != "base64":
+        return None
+    return base64.b64decode(data.get("content", "")).decode("utf-8", "replace")
+
+
 def scan_repo(repo, token):
     """The failing checks of one repository, each with a short detail."""
     name, default = repo["name"], repo["default_branch"]
@@ -175,6 +355,11 @@ def scan_repo(repo, token):
         latest = gh(f"{r}/commits?sha={ref}&per_page=1", token, absent=(409,))  # 409: no commits
         if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
             failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
+    text = readme_text(r, token)
+    dead = dead_links(text) if text else []
+    if dead:
+        failed["links"] = str(len(dead))
+        DEAD_LINKS[name] = dead
     cache = cache_usage(r, token)
     if cache is not None and cache[0] > CACHE_WARN * cache[1]:
         failed["cache"] = f"{cache[0] / 2**30:.1f} of {cache[1] // 2**30} GB"
@@ -214,6 +399,10 @@ def render(state, exceptions_used, expired, changes, repos_total):
             continue
         items = ", ".join(f"`{r}`" + (f" ({d})" if d else "") for r, d in sorted(repos.items()))
         lines += ["", f"<details><summary><b>{title}</b>: {len(repos)}</summary>", "", items, "", "</details>"]
+    listed = {r: urls for r, urls in sorted(DEAD_LINKS.items()) if r in state.get("links", {})}
+    if listed:
+        lines += ["", "<details><summary><b>Dead links in READMEs</b></summary>", ""]
+        lines += [f"- `{r}`: " + ", ".join(urls) for r, urls in listed.items()] + ["", "</details>"]
     if exceptions_used:
         lines += ["", "<details><summary><b>Exceptions in force</b></summary>", ""]
         lines += [f"- `{r}` / {c}: {why}" for (r, c), why in sorted(exceptions_used.items())] + ["", "</details>"]

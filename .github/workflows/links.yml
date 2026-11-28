@@ -28,6 +28,9 @@ jobs:
       - run: yarn build
       - name: Check the links of the built site and the README
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        env:
+          # Lets lychee check the links to GitHub through the API, with a rate limit that a run does not exhaust.
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           args: >-
             --config lychee.toml --no-progress

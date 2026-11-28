@@ -313,3 +313,186 @@ class MonthlyComment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadmeLinks(unittest.TestCase):
+    """The `links` check: a link counts as dead only on a definite sign, never on a noisy network."""
+
+    def setUp(self):
+        scan.LINK_CACHE.clear()
+        scan.DEAD_LINKS.clear()
+
+    def test_links_are_found_in_markdown_html_and_plain_text_without_trailing_punctuation(self):
+        text = ("See [a](https://a.org/x), <https://b.org/y>, <a href=\"https://c.org/z\">c</a> and https://d.org/w.\n"
+                "Again [a](https://a.org/x#frag).")
+        self.assertEqual(scan.readme_links(text), ["https://a.org/x", "https://b.org/y", "https://c.org/z", "https://d.org/w"])
+
+    def test_balanced_parentheses_belong_to_the_url_and_the_closing_one_of_markdown_does_not(self):
+        text = "[S](https://en.wikipedia.org/wiki/Source_(programming_language)) and [T](https://t.org/a_(b)_(c)) and (see https://u.org/x)."
+        self.assertEqual(scan.readme_links(text), ["https://en.wikipedia.org/wiki/Source_(programming_language)", "https://t.org/a_(b)_(c)", "https://u.org/x"])
+
+    def test_links_in_code_blocks_and_code_spans_are_examples_not_links(self):
+        text = "```sh\nvendor.sh https://example-base.org/py-slang file.js\n```\nUse `https://inline.org/x` or [real](https://real.org/r)."
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_trailing_underscore_or_bang_inside_a_markdown_destination_is_part_of_the_url(self):
+        text = "[a](https://host.org/page_) [b](https://host.org/hi!) see https://p.org/q. (see https://u.org/x)."
+        self.assertEqual(scan.readme_links(text), ["https://host.org/hi!", "https://host.org/page_", "https://p.org/q", "https://u.org/x"])
+
+    def test_a_link_between_delimiters_is_exactly_what_is_written(self):
+        text = '<https://a.org/page_> <a href="https://b.org/hi!">b</a> [c](https://c.org/x*) ![i](https://d.org/img_.png)'
+        self.assertEqual(scan.readme_links(text), ["https://a.org/page_", "https://b.org/hi!", "https://c.org/x*", "https://d.org/img_.png"])
+
+    def test_a_markdown_destination_may_have_a_title(self):
+        self.assertEqual(scan.readme_links('[t](https://t.org/a "the title") and [u](https://u.org/b_(c))'),
+                         ["https://t.org/a", "https://u.org/b_(c)"])
+
+    def test_a_placeholder_is_skipped_only_if_it_is_the_whole_hostname(self):
+        skipped = ["http://localhost", "http://localhost:4000/x", "https://example.com", "https://example.org/a",
+                   "http://127.0.0.1:8080", "http://0.0.0.0/", "https://your-source-academy-url/mission-control"]
+        kept = ["https://example.com.au/page", "https://localhost.example.org/page", "https://127.example.com/", "https://examples.org/"]
+        for u in skipped:
+            self.assertEqual(scan.readme_links(f"see {u} now"), [], u)
+        for u in kept:
+            self.assertEqual(scan.readme_links(f"see {u} now"), [u], u)
+
+    def test_an_unclosed_fence_hides_the_rest_of_the_text(self):
+        text = "[real](https://real.org/r)\n\n```sh\ncurl https://example-cmd.org/x\n(no closing fence)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_an_indented_code_block_is_code_but_a_list_continuation_and_a_lazy_line_are_not(self):
+        text = ("Intro [one](https://one.org/a)\n\n"
+                "    curl https://indented-code.org/x\n\n"
+                "- an item\n\n"
+                "    continues the item: [two](https://two.org/b)\n\n"
+                "A paragraph\n    lazy continuation [three](https://three.org/c)\n")
+        self.assertEqual(scan.readme_links(text), ["https://one.org/a", "https://three.org/c", "https://two.org/b"])
+
+    def test_every_line_of_an_indented_block_is_code(self):
+        text = "Intro\n\n    echo example\n    https://dead.example.org/x\n\n    https://also-code.org/y\n\nThen [real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_fence_marker_in_an_indented_block_is_content_not_an_opener(self):
+        text = "Intro\n\n    ```\n    https://example-code.org/a\n\n[real](https://real.org/r)\n"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_fence_inside_a_list_item_may_be_indented_more(self):
+        text = "- item\n\n    ```sh\n    curl https://inside.org/x\n    ```\n\n[real](https://real.org/r)\n"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_html_comments_are_not_links_an_unclosed_one_hides_the_rest(self):
+        self.assertEqual(scan.readme_links("<!-- [old](https://dead.org/x) -->\n[real](https://real.org/r)"), ["https://real.org/r"])
+        self.assertEqual(scan.readme_links("[real](https://real.org/r)\n<!-- never closed [x](https://hidden.org/y)"), ["https://real.org/r"])
+
+    def test_windows_line_endings_do_not_turn_a_closed_fence_into_an_open_one(self):
+        text = "```sh\r\ncurl https://inside.org/a\r\n```\r\n\r\n[real](https://real.org/r)\r\n"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_code_span_ends_at_a_run_of_backticks_as_long_as_its_opening_one(self):
+        text = "``tick ` https://dead.example.org/x`` and `https://one.org/y` and [real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_triple_backticks_inside_a_line_are_a_code_span_not_a_fence(self):
+        text = "```https://span.org/a``` is code.\n\n[real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_closing_fence_is_alone_on_its_line(self):
+        text = "```sh\n```not-a-close\nhttps://inside.org/a\n```  \n[real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_character_references_in_attributes_and_destinations_are_decoded(self):
+        text = '<a href="https://h.org/a&amp;b">x</a> [y](https://h.org/c&amp;d) <https://h.org/e&amp;f>'
+        self.assertEqual(scan.readme_links(text), ["https://h.org/a&b", "https://h.org/c&d", "https://h.org/e&amp;f"])
+
+    def test_a_longer_fence_is_closed_only_by_a_fence_as_long(self):
+        text = "````md\n```sh\ncurl https://inside.org/a\n```\nstill code https://inside.org/b\n````\n[real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_dollar_sign_is_a_valid_url_character_only_template_syntax_is_a_placeholder(self):
+        self.assertEqual(scan.readme_links("[a](https://h.org/api/$metadata) [b](https://h.org/{id}) [c](https://h.org/${VAR}/x)"),
+                         ["https://h.org/api/$metadata"])
+
+    def test_html_attributes_may_have_spaces_around_the_equals_sign_and_other_quotes(self):
+        text = """<a href = "https://a.org/page_">a</a> <a href='https://b.org/p_'>b</a> <img src=https://c.org/i_.png>"""
+        self.assertEqual(scan.readme_links(text), ["https://a.org/page_", "https://b.org/p_", "https://c.org/i_.png"])
+
+    def ask_with(self, reason):
+        import urllib.error
+        def urlopen(req, timeout=0):
+            raise urllib.error.URLError(reason)
+        with mock.patch.object(scan.urllib.request, "urlopen", urlopen):
+            return scan.http_status("https://x.org/")
+
+    def test_only_a_missing_host_is_dns_a_temporary_resolver_failure_is_not(self):
+        import socket
+        self.assertEqual(self.ask_with(socket.gaierror(socket.EAI_NONAME, "not known")), "dns")
+        self.assertIsNone(self.ask_with(socket.gaierror(socket.EAI_AGAIN, "temporary failure")))
+        self.assertIsNone(self.ask_with(OSError("connection reset")))
+
+    def test_placeholders_and_templates_are_not_links(self):
+        text = "http://localhost:4000 https://example.com/a https://your-source-academy-url/x https://h.org/{id} http://127.0.0.1/"
+        self.assertEqual(scan.readme_links(text), [])
+
+    def test_only_404_410_and_a_missing_host_twice_are_dead(self):
+        for answer in (404, 410, "dns"):
+            self.assertTrue(scan.is_dead("u", fetch=lambda u, a=answer: a, sleep=lambda s: None), answer)
+
+    def test_a_link_that_is_refused_slow_or_broken_is_not_dead(self):
+        for answer in (200, 301, 403, 429, 500, 503, None):
+            self.assertFalse(scan.is_dead("u", fetch=lambda u, a=answer: a, sleep=lambda s: None), answer)
+
+    def test_a_404_that_goes_away_on_the_second_try_is_not_dead(self):
+        answers = iter([404, 200])
+        self.assertFalse(scan.is_dead("u", fetch=lambda u: next(answers), sleep=lambda s: None))
+
+    def test_a_dead_link_is_asked_twice_with_a_pause(self):
+        asked, slept = [], []
+        scan.is_dead("u", fetch=lambda u: asked.append(u) or 404, sleep=slept.append)
+        self.assertEqual((len(asked), len(slept)), (2, 1))
+
+    def test_a_link_used_in_many_readmes_is_asked_once(self):
+        asked = []
+        with mock.patch.object(scan, "http_status", lambda u: asked.append(u) or 404), mock.patch("time.sleep", lambda s: None):
+            first = scan.dead_links("[x](https://gone.org/a)")
+            second = scan.dead_links("[y](https://gone.org/a)")
+        self.assertEqual((first, second), (["https://gone.org/a"], ["https://gone.org/a"]))
+        self.assertEqual(len(asked), 2)  # the two tries of one question, not four
+
+    def scan_repo_with_readme(self, readme_json):
+        def gh(path, token, paginate=False, absent=()):
+            if path.endswith("/readme"):
+                return readme_json
+            if "/branches?" in path:
+                return [{"name": "main"}]
+            if "/community/profile" in path:
+                return {"files": {"readme": {}}}
+            if "/pulls?" in path or "/dependabot/alerts" in path:
+                return []
+            return None
+        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
+        with mock.patch.object(scan, "gh", gh):
+            return scan.scan_repo(repo, None)
+
+    def readme(self, text):
+        import base64
+        return {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
+
+    def test_a_readme_with_a_dead_link_is_reported_with_the_count_and_the_link_is_kept_for_the_report(self):
+        with mock.patch.object(scan, "http_status", lambda u: 404 if "gone" in u else 200), mock.patch("time.sleep", lambda s: None):
+            failed = self.scan_repo_with_readme(self.readme("[a](https://gone.org/a) [b](https://ok.org/b)"))
+        self.assertEqual(failed.get("links"), "1")
+        self.assertEqual(scan.DEAD_LINKS["r"], ["https://gone.org/a"])
+
+    def test_a_readme_with_only_working_links_or_none_is_not_reported(self):
+        with mock.patch.object(scan, "http_status", lambda u: 200):
+            self.assertNotIn("links", self.scan_repo_with_readme(self.readme("[b](https://ok.org/b)")))
+            self.assertNotIn("links", self.scan_repo_with_readme(self.readme("no links here")))
+            self.assertNotIn("links", self.scan_repo_with_readme(None))  # no README: the `readme` check reports that
+
+    def test_the_report_lists_the_dead_links_only_of_repositories_that_still_fail(self):
+        scan.DEAD_LINKS.update({"a": ["https://gone.org/1"], "b": ["https://gone.org/2"]})
+        state = {c: {} for c in scan.CHECKS}
+        state["links"] = {"a": "1"}  # "b" has an exception
+        body = scan.render(state, {}, [], {}, 2)
+        self.assertIn("https://gone.org/1", body)
+        self.assertNotIn("https://gone.org/2", body)

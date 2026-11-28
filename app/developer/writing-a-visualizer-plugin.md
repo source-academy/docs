@@ -130,7 +130,7 @@ The other shapes that exist:
 
 - **The Stepper** is one plugin for several languages. The evaluator sends a `profile` with the rendering rules for its language, and the plugin draws with them.
 - **The Data Visualizer** shows data structures, over a channel of its own.
-- **The CSE machine** is still part of the frontend and is becoming a plugin, for languages that share the environment model (source-academy/plugins#194). A language with another mental model does not use it, and brings a plugin of its own.
+- **The CSE machine** is a plugin, for languages that share the environment model: `web-cse-machine` in the plugins repository, with the directory id `cse-machine` (source-academy/plugins#223 and #226), and the frontend no longer has a built-in copy (source-academy/frontend#4646). Its evaluators extend `runner-cse-machine` and load it with `hostLoadPlugin`, like the Stepper. A language with another mental model does not use it, and brings a plugin of its own.
 
 ## Checklist
 

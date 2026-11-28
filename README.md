@@ -31,7 +31,7 @@ The pages are the Markdown files under `app/`: `app/developer/` is `/developer/`
 
 ## Links
 
-A link checker ([lychee](https://github.com/lycheeverse/lychee), configured in `lychee.toml`) runs on every pull request over the built site and this README, and every Monday over the READMEs of the organisation's public repositories (`.github/workflows/links.yml`). A run that finds a dead link fails; the sites that refuse automated clients (403 and 429) are not counted as dead.
+A link checker ([lychee](https://github.com/lycheeverse/lychee), configured in `lychee.toml`) runs on every pull request, and every Monday, over the built site and this README (`.github/workflows/links.yml`). A run that finds a dead link fails; the sites that refuse automated clients (403 and 429) are not counted as dead. The READMEs of the organisation's other repositories are checked by the monthly scan (`tools/org-health`).
 
 ## Scripts
 

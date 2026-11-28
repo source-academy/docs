@@ -27,6 +27,8 @@ export default defineConfig({
 
   themeConfig: {
     logo: "/docs-assets/img/sourcepower.ico",
+    // The site has no root page (the root belongs to js-slang's redirect), so the logo goes to the front door.
+    logoLink: "https://about.sourceacademy.org/",
     siteTitle: "Source Academy Documentation",
 
     nav: [

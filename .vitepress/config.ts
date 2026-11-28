@@ -72,10 +72,6 @@ export default defineConfig({
           },
         ],
       },
-      {
-        text: "Publications",
-        items: [{ text: "Publications", link: "/docs/publications/" }],
-      },
     ],
 
     footer: {

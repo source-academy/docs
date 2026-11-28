@@ -22,6 +22,10 @@ yarn preview
 
 ## Documentation
 
+The site is published at <https://docs.sourceacademy.org> in three sections, like the [about site](https://about.sourceacademy.org/): [developer](https://docs.sourceacademy.org/developer/), [educator](https://docs.sourceacademy.org/educator/) and [learner](https://docs.sourceacademy.org/learner/). It is built from this repository by `.github/workflows/deploy.yml` on every push to `main`, into the deployment repository [`docs.sourceacademy.org`](https://github.com/source-academy/docs.sourceacademy.org), next to the language documentation (`/javascript`, `/python`).
+
+The pages are the Markdown files under `app/`: `app/developer/` is `/developer/`, and so on. For the tool that builds them:
+
 - [VitePress Documentation](https://vitepress.dev/) - Official VitePress docs
 - [Default Theme Config](https://vitepress.dev/reference/default-theme-config) - Theme configuration reference
 

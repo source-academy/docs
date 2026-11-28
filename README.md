@@ -29,6 +29,10 @@ The pages are the Markdown files under `app/`: `app/developer/` is `/developer/`
 - [VitePress Documentation](https://vitepress.dev/) - Official VitePress docs
 - [Default Theme Config](https://vitepress.dev/reference/default-theme-config) - Theme configuration reference
 
+## Links
+
+A link checker ([lychee](https://github.com/lycheeverse/lychee), configured in `lychee.toml`) runs on every pull request over the built site and this README, and every Monday over the READMEs of the organisation's public repositories (`.github/workflows/links.yml`). A run that finds a dead link fails; the sites that refuse automated clients (403 and 429) are not counted as dead.
+
 ## Scripts
 
 | Command           | Description                  |

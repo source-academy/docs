@@ -1,0 +1,61 @@
+# Dead links, in this site and in the READMEs of the organisation's repositories (docs#27).
+#
+# - Pull requests and pushes: the built site and this repository's README. A broken link in a change fails the check.
+# - Every Monday (and on demand): the READMEs of all public, active repositories of the organisation. A failed run is
+#   the alarm, through GitHub's own email about failed workflows, as for the monthly scan.
+name: Links
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Enable corepack for Yarn
+        run: corepack enable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: yarn
+      - run: yarn install --immutable
+      - run: yarn build
+      - name: Check the links of the built site and the README
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --config lychee.toml --no-progress
+            --root-dir ${{ github.workspace }}/dist --fallback-extensions html
+            'dist/**/*.html' README.md
+          fail: true
+
+  readmes:
+    # Not on pull requests: it depends on other repositories, which a pull request here does not change.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download the READMEs of the public, active repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir readmes
+          for r in $(gh repo list source-academy --visibility public --no-archived --limit 300 --json name --jq '.[].name'); do
+            gh api "repos/source-academy/$r/readme" --jq .content 2>/dev/null | base64 -d > "readmes/$r.md" || rm -f "readmes/$r.md"
+          done
+          ls readmes | wc -l
+      - name: Check the links of the READMEs
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          # Only absolute links: a README's links to files of its own repository cannot be resolved out of context.
+          args: --config lychee.toml --no-progress --scheme https --scheme http 'readmes/*.md'
+          fail: true

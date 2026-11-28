@@ -147,7 +147,12 @@ def cache_usage(r, token):
 # unreachable site says nothing about a link.)
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
 CODE = re.compile(  # examples and commands, not links that a reader follows
-    r"^[ \t]*(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=f)[`~]*[ \t]*$|\Z)|`[^`\n]+`", re.S | re.M)
+    # a fence: the opening and the closing marker each on a line of their own (a backtick fence has no backtick in its
+    # info string, or it is a code span); a code span: a run of backticks up to the next run of the same length
+    r"^[ \t]*(?P<f>`{3,})[^`\n]*\n.*?(?:^[ \t]*(?P=f)`*[ \t]*$|\Z)"
+    r"|^[ \t]*(?P<t>~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=t)~*[ \t]*$|\Z)"
+    r"|(?<!`)(?P<c>`+)(?!`)(?:(?!\n[ \t]*\n).)+?(?<!`)(?P=c)(?!`)",
+    re.S | re.M)
 LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
 LINK_SKIP = re.compile(
     r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)"
@@ -232,6 +237,7 @@ def trim_url(url):
 
 def readme_links(text):
     """The absolute links of a README, without the placeholders of examples and without what is in code."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")  # a README with Windows line endings
     delimited, rest = delimited_links(strip_indented_code(CODE.sub(" ", text)))
     found = set()
     for url in delimited + [trim_url(m) for m in LINK.findall(rest)]:

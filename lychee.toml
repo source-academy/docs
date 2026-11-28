@@ -5,9 +5,10 @@ timeout = 20
 max_concurrency = 8
 user_agent = "Mozilla/5.0 (compatible; source-academy-link-check)"
 
-# 403 and 429 mean that a site refuses automated clients (doi.org, npmjs.com and mitpress.mit.edu do), not that the
-# page is gone, so they do not fail the check.
-accept = ["200..=299", "403", "429"]
+# 403 and 429 mean that a site refuses automated clients (doi.org, npmjs.com and mitpress.mit.edu do), and a 5xx that a
+# server is busy (github.com answers 503 when a run asks for many pages): neither says that the page is gone, so they
+# do not fail the check. A page that is gone answers 404 or 410.
+accept = ["200..=299", "403", "429", "500..=599"]
 
 exclude = [
   # placeholders in examples

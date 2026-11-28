@@ -1,0 +1,20 @@
+# Settings of the link checker (.github/workflows/links.yml, docs#27).
+
+max_retries = 2
+timeout = 20
+max_concurrency = 8
+user_agent = "Mozilla/5.0 (compatible; source-academy-link-check)"
+
+# 403 and 429 mean that a site refuses automated clients (doi.org, npmjs.com and mitpress.mit.edu do), not that the
+# page is gone, so they do not fail the check.
+accept = ["200..=299", "403", "429"]
+
+exclude = [
+  # placeholders in examples
+  '^https?://your-',
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
+  '^https?://example\.(com|org)',
+  # the language documentation is published by other repositories: not in this site's build
+  '^file://.*/(javascript|python)(/|$)',
+]

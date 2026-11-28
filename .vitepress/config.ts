@@ -5,14 +5,14 @@ export default defineConfig({
   description: "Documentation for Source Academy",
 
   lang: "en-US",
-  // Published at https://docs.sourceacademy.org/developers/ (see .github/workflows/deploy.yml).
-  base: "/developers/",
+  // Published at the root of https://docs.sourceacademy.org, in the folders developer, educator and learner (see
+  // .github/workflows/deploy.yml). The root page belongs to js-slang (a redirect to /javascript), and the root folders
+  // to the other publishers: this site has no root page, and keeps its own files under docs-assets.
+  base: "/",
+  assetsDir: "docs-assets",
   cleanUrls: true,
   srcDir: "app",
   outDir: "dist",
-
-  // The BibTeX file in app/public is a download, not a page: the link checker does not know the extension.
-  ignoreDeadLinks: [/^\/source-academy\.bib$/],
 
   head: [
     [
@@ -20,65 +20,60 @@ export default defineConfig({
       {
         rel: "icon",
         type: "image/x-icon",
-        href: "/developers/img/sourcepower.ico",
+        href: "/docs-assets/img/sourcepower.ico",
       },
     ],
   ],
 
   themeConfig: {
-    logo: "/img/sourcepower.ico",
+    logo: "/docs-assets/img/sourcepower.ico",
     siteTitle: "Source Academy Documentation",
 
     nav: [
-      { text: "Docs", link: "/docs/intro" },
-      { text: "Assessment Guide", link: "/docs/assessment/README" },
-      { text: "About", link: "/about" },
+      { text: "Developer", link: "/developer/" },
+      { text: "Educator", link: "/educator/" },
+      { text: "Learner", link: "/learner/" },
+      { text: "About", link: "https://about.sourceacademy.org/" },
       {
         text: "GitHub",
         link: "https://github.com/source-academy",
       },
     ],
 
-    sidebar: [
-      {
-        text: "Getting Started",
-        items: [{ text: "Start Here", link: "/docs/intro" }],
-      },
-      {
-        text: "About",
-        items: [
-          {
-            text: "Versions and names",
-            link: "/docs/about/versions-and-names",
-          },
-        ],
-      },
-      {
-        text: "Assessment Guide",
-        items: [
-          { text: "Assessment Configuration", link: "/docs/assessment/README" },
-        ],
-      },
-      {
-        text: "Developers",
-        items: [
-          {
-            text: "Writing a visualizer plugin",
-            link: "/docs/developers/writing-a-visualizer-plugin",
-          },
-          { text: "Node.js version", link: "/docs/developers/node-version" },
-        ],
-      },
-      {
-        text: "Contributing",
-        items: [
-          {
-            text: "Cleaning up comments",
-            link: "/docs/contributing/comment-cleanup",
-          },
-        ],
-      },
-    ],
+    sidebar: {
+      "/developer/": [
+        {
+          text: "Developers",
+          items: [
+            {
+              text: "Writing a visualizer plugin",
+              link: "/developer/writing-a-visualizer-plugin",
+            },
+            { text: "Node.js version", link: "/developer/node-version" },
+            {
+              text: "Cleaning up comments",
+              link: "/developer/comment-cleanup",
+            },
+          ],
+        },
+      ],
+      "/educator/": [
+        {
+          text: "Educators",
+          items: [
+            { text: "Assessment configuration", link: "/educator/assessment/" },
+          ],
+        },
+      ],
+      "/learner/": [
+        {
+          text: "Learners",
+          items: [
+            { text: "Versions and names", link: "/learner/versions-and-names" },
+          ],
+        },
+      ],
+    },
 
     footer: {
       message: "Built with VitePress.",

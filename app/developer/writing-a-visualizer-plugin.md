@@ -56,7 +56,7 @@ In the language's repository, an evaluator
 
 py-slang's `PyEStepperEvaluator` does exactly this.
 
-The **run configuration** is the lines that have breakpoints in the editor's gutter. Conductor has no message for it, so the host serves it as a virtual file, `/__cse_config__`, which an evaluator fetches with `requestFile`; py-slang and js-slang each read it with a small helper, `fetchRunConfig`. The name is a leftover of the first tool that used it, and is to be made neutral (source-academy/frontend#4587).
+The **run configuration** is the lines that have breakpoints in the editor's gutter. Conductor has no message for it, so the host serves it as a virtual file, `/__run_config__`, which an evaluator fetches with `requestFile`; py-slang and js-slang each read it with a small helper, `fetchRunConfig`. The file used to be called `/__cse_config__`, after the first tool that used it; the helpers still fall back to that name when a host does not serve the new one (source-academy/frontend#4648).
 
 A visualizer's evaluator is not for running a program in the editor. It is a bundle of its own, and its own entry in the language directory.
 
@@ -75,7 +75,7 @@ A tab looks after itself: it handles its own keys on its root element, it shows 
 
 ## 5. What the host offers
 
-Beyond the tab service, a host may pass the plugin a few optional services, as `hostServices` (the type is `IHostContract` in `common-tabs`). A plugin must work without them.
+Beyond the tab service, a host may pass the plugin a few optional services, as `hostServices` (the type is `IHostContract` in `common-tabs`, from version 0.2.0). A plugin must work without them.
 
 - `editor.highlight(lines)` marks lines of the editor, as pairs `[first, last]`, 1-based and inclusive. Call it with no lines to clear. How a highlight looks is the host's to decide.
 

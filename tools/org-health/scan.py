@@ -147,7 +147,10 @@ def cache_usage(r, token):
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
 CODE = re.compile(r"```.*?(?:```|\Z)|~~~.*?(?:~~~|\Z)|`[^`\n]+`", re.S)  # examples and commands, not links that a reader follows
 LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
-LINK_SKIP = re.compile(r"^https?://(localhost\b|127\.|0\.0\.0\.0|example\.(com|org)\b|your-)|[{}$]", re.I)
+LINK_SKIP = re.compile(
+    r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)|[{}$]", re.I)
+ANGLE = re.compile(r"<(https?://[^\s<>]+)>")  # an autolink
+ATTR = re.compile(r"""(?:href|src)=["'](https?://[^"'\s]+)["']""", re.I)  # an HTML attribute
 NO_SUCH_HOST = {c for c in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None)) if c is not None}
 LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
 DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
@@ -170,14 +173,45 @@ def strip_indented_code(text):
     return "\n".join(out)
 
 
+def delimited_links(text):
+    """(the links that sit between delimiters, the text without them). Between `<` and `>`, between quotes, or as the
+    destination of a Markdown link (up to the `)` that closes it, with balanced pairs inside), a link is exactly what is
+    written: nothing is trimmed from it."""
+    found = []
+
+    def take(m):
+        found.append(m.group(1))
+        return " "
+    text = ATTR.sub(take, ANGLE.sub(take, text))
+    out, i = [], 0
+    while True:
+        j = text.find("](http", i)
+        if j < 0:
+            out.append(text[i:])
+            break
+        out.append(text[i:j + 1])
+        k, depth = j + 2, 0
+        while k < len(text) and not text[k].isspace():
+            if text[k] == "(":
+                depth += 1
+            elif text[k] == ")":
+                if depth == 0:
+                    break
+                depth -= 1
+            k += 1
+        found.append(text[j + 2:k])
+        out.append(" ")
+        i = k + 1
+    return found, "".join(out)
+
+
 def trim_url(url):
-    """A link as the reader follows it: without the `)` that closes a Markdown destination (a balanced pair is part of
-    the URL, and so is a trailing `_` or `!` inside the destination), and without the punctuation of the prose around it."""
-    closed = False
+    """A link written in running text, as the reader follows it: without the punctuation of the sentence around it, and
+    without a closing parenthesis that has no opening one (a balanced pair is part of the URL)."""
     while url:
         if url.endswith(")") and url.count("(") < url.count(")"):
-            url, closed = url[:-1], True
-        elif not closed and url[-1] in ".,;:!?*_":
+            url = url[:-1]
+        elif url[-1] in ".,;:!?*_":
             url = url[:-1]
         else:
             break
@@ -186,9 +220,10 @@ def trim_url(url):
 
 def readme_links(text):
     """The absolute links of a README, without the placeholders of examples and without what is in code."""
+    delimited, rest = delimited_links(strip_indented_code(CODE.sub(" ", text)))
     found = set()
-    for m in LINK.findall(strip_indented_code(CODE.sub(" ", text))):
-        url = trim_url(m).split("#")[0]
+    for url in delimited + [trim_url(m) for m in LINK.findall(rest)]:
+        url = url.split("#")[0]
         if url and not LINK_SKIP.search(url):
             found.add(url)
     return sorted(found)

@@ -339,6 +339,23 @@ class ReadmeLinks(unittest.TestCase):
         text = "[a](https://host.org/page_) [b](https://host.org/hi!) see https://p.org/q. (see https://u.org/x)."
         self.assertEqual(scan.readme_links(text), ["https://host.org/hi!", "https://host.org/page_", "https://p.org/q", "https://u.org/x"])
 
+    def test_a_link_between_delimiters_is_exactly_what_is_written(self):
+        text = '<https://a.org/page_> <a href="https://b.org/hi!">b</a> [c](https://c.org/x*) ![i](https://d.org/img_.png)'
+        self.assertEqual(scan.readme_links(text), ["https://a.org/page_", "https://b.org/hi!", "https://c.org/x*", "https://d.org/img_.png"])
+
+    def test_a_markdown_destination_may_have_a_title(self):
+        self.assertEqual(scan.readme_links('[t](https://t.org/a "the title") and [u](https://u.org/b_(c))'),
+                         ["https://t.org/a", "https://u.org/b_(c)"])
+
+    def test_a_placeholder_is_skipped_only_if_it_is_the_whole_hostname(self):
+        skipped = ["http://localhost", "http://localhost:4000/x", "https://example.com", "https://example.org/a",
+                   "http://127.0.0.1:8080", "http://0.0.0.0/", "https://your-source-academy-url/mission-control"]
+        kept = ["https://example.com.au/page", "https://localhost.example.org/page", "https://127.example.com/", "https://examples.org/"]
+        for u in skipped:
+            self.assertEqual(scan.readme_links(f"see {u} now"), [], u)
+        for u in kept:
+            self.assertEqual(scan.readme_links(f"see {u} now"), [u], u)
+
     def test_an_unclosed_fence_hides_the_rest_of_the_text(self):
         text = "[real](https://real.org/r)\n\n```sh\ncurl https://example-cmd.org/x\n(no closing fence)"
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])

@@ -327,6 +327,27 @@ class ReadmeLinks(unittest.TestCase):
                 "Again [a](https://a.org/x#frag).")
         self.assertEqual(scan.readme_links(text), ["https://a.org/x", "https://b.org/y", "https://c.org/z", "https://d.org/w"])
 
+    def test_balanced_parentheses_belong_to_the_url_and_the_closing_one_of_markdown_does_not(self):
+        text = "[S](https://en.wikipedia.org/wiki/Source_(programming_language)) and [T](https://t.org/a_(b)_(c)) and (see https://u.org/x)."
+        self.assertEqual(scan.readme_links(text), ["https://en.wikipedia.org/wiki/Source_(programming_language)", "https://t.org/a_(b)_(c)", "https://u.org/x"])
+
+    def test_links_in_code_blocks_and_code_spans_are_examples_not_links(self):
+        text = "```sh\nvendor.sh https://example-base.org/py-slang file.js\n```\nUse `https://inline.org/x` or [real](https://real.org/r)."
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def ask_with(self, reason):
+        import urllib.error
+        def urlopen(req, timeout=0):
+            raise urllib.error.URLError(reason)
+        with mock.patch.object(scan.urllib.request, "urlopen", urlopen):
+            return scan.http_status("https://x.org/")
+
+    def test_only_a_missing_host_is_dns_a_temporary_resolver_failure_is_not(self):
+        import socket
+        self.assertEqual(self.ask_with(socket.gaierror(socket.EAI_NONAME, "not known")), "dns")
+        self.assertIsNone(self.ask_with(socket.gaierror(socket.EAI_AGAIN, "temporary failure")))
+        self.assertIsNone(self.ask_with(OSError("connection reset")))
+
     def test_placeholders_and_templates_are_not_links(self):
         text = "http://localhost:4000 https://example.com/a https://your-source-academy-url/x https://h.org/{id} http://127.0.0.1/"
         self.assertEqual(scan.readme_links(text), [])

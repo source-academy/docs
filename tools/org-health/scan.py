@@ -144,17 +144,22 @@ def cache_usage(r, token):
 # server error is not reported: if the page is really gone, a later scan finds it. (This differs on purpose from the
 # calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
 # unreachable site says nothing about a link.)
-LINK = re.compile(r"""https?://[^\s<>"'`)\]]+""")
+LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
+CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.S)  # examples and commands, not links that a reader follows
 LINK_SKIP = re.compile(r"^https?://(localhost\b|127\.|0\.0\.0\.0|example\.(com|org)\b|your-)|[{}$]", re.I)
+NO_SUCH_HOST = {c for c in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None)) if c is not None}
 LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
 DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
 
 
 def readme_links(text):
-    """The absolute links of a README, without the placeholders of examples."""
+    """The absolute links of a README, without the placeholders of examples and without what is in code."""
     found = set()
-    for m in LINK.findall(text):
-        url = m.rstrip(".,;:!?*_").split("#")[0]
+    for m in LINK.findall(CODE.sub(" ", text)):
+        url = m.rstrip(".,;:!?*_")
+        while url.endswith(")") and url.count("(") < url.count(")"):
+            url = url[:-1].rstrip(".,;:!?*_")  # the `)` that closes a Markdown destination; a balanced one is part of the URL
+        url = url.split("#")[0]
         if url and not LINK_SKIP.search(url):
             found.add(url)
     return sorted(found)
@@ -171,7 +176,9 @@ def http_status(url, timeout=15):
         except urllib.error.HTTPError as e:
             return e.code
         except urllib.error.URLError as e:
-            return "dns" if isinstance(e.reason, socket.gaierror) else None
+            # Only "no such host" is a definite sign: a resolver that is unavailable or times out (EAI_AGAIN) is noise.
+            gone = isinstance(e.reason, socket.gaierror) and e.reason.errno in NO_SUCH_HOST
+            return "dns" if gone else None
         except Exception:
             return None
     status = ask("HEAD")

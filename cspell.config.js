@@ -46,6 +46,8 @@ export default defineConfig({
     "blueprintjs",
     "Centralised",
     "Chua",
+    "CodeQL",
+    "Dependabot",
     "coverimage",
     "CSEDU",
     "Daoxin",

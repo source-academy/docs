@@ -47,6 +47,7 @@ export default defineConfig({
         {
           text: "Developers",
           items: [
+            { text: "Contributing", link: "/developer/contributing" },
             {
               text: "Writing a visualizer plugin",
               link: "/developer/writing-a-visualizer-plugin",

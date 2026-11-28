@@ -313,3 +313,84 @@ class MonthlyComment(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadmeLinks(unittest.TestCase):
+    """The `links` check: a link counts as dead only on a definite sign, never on a noisy network."""
+
+    def setUp(self):
+        scan.LINK_CACHE.clear()
+        scan.DEAD_LINKS.clear()
+
+    def test_links_are_found_in_markdown_html_and_plain_text_without_trailing_punctuation(self):
+        text = ("See [a](https://a.org/x), <https://b.org/y>, <a href=\"https://c.org/z\">c</a> and https://d.org/w.\n"
+                "Again [a](https://a.org/x#frag).")
+        self.assertEqual(scan.readme_links(text), ["https://a.org/x", "https://b.org/y", "https://c.org/z", "https://d.org/w"])
+
+    def test_placeholders_and_templates_are_not_links(self):
+        text = "http://localhost:4000 https://example.com/a https://your-source-academy-url/x https://h.org/{id} http://127.0.0.1/"
+        self.assertEqual(scan.readme_links(text), [])
+
+    def test_only_404_410_and_a_missing_host_twice_are_dead(self):
+        for answer in (404, 410, "dns"):
+            self.assertTrue(scan.is_dead("u", fetch=lambda u, a=answer: a, sleep=lambda s: None), answer)
+
+    def test_a_link_that_is_refused_slow_or_broken_is_not_dead(self):
+        for answer in (200, 301, 403, 429, 500, 503, None):
+            self.assertFalse(scan.is_dead("u", fetch=lambda u, a=answer: a, sleep=lambda s: None), answer)
+
+    def test_a_404_that_goes_away_on_the_second_try_is_not_dead(self):
+        answers = iter([404, 200])
+        self.assertFalse(scan.is_dead("u", fetch=lambda u: next(answers), sleep=lambda s: None))
+
+    def test_a_dead_link_is_asked_twice_with_a_pause(self):
+        asked, slept = [], []
+        scan.is_dead("u", fetch=lambda u: asked.append(u) or 404, sleep=slept.append)
+        self.assertEqual((len(asked), len(slept)), (2, 1))
+
+    def test_a_link_used_in_many_readmes_is_asked_once(self):
+        asked = []
+        with mock.patch.object(scan, "http_status", lambda u: asked.append(u) or 404), mock.patch("time.sleep", lambda s: None):
+            first = scan.dead_links("[x](https://gone.org/a)")
+            second = scan.dead_links("[y](https://gone.org/a)")
+        self.assertEqual((first, second), (["https://gone.org/a"], ["https://gone.org/a"]))
+        self.assertEqual(len(asked), 2)  # the two tries of one question, not four
+
+    def scan_repo_with_readme(self, readme_json):
+        def gh(path, token, paginate=False, absent=()):
+            if path.endswith("/readme"):
+                return readme_json
+            if "/branches?" in path:
+                return [{"name": "main"}]
+            if "/community/profile" in path:
+                return {"files": {"readme": {}}}
+            if "/pulls?" in path or "/dependabot/alerts" in path:
+                return []
+            return None
+        repo = {"name": "r", "default_branch": "main", "license": {"spdx_id": "MIT"}}
+        with mock.patch.object(scan, "gh", gh):
+            return scan.scan_repo(repo, None)
+
+    def readme(self, text):
+        import base64
+        return {"encoding": "base64", "content": base64.b64encode(text.encode()).decode()}
+
+    def test_a_readme_with_a_dead_link_is_reported_with_the_count_and_the_link_is_kept_for_the_report(self):
+        with mock.patch.object(scan, "http_status", lambda u: 404 if "gone" in u else 200), mock.patch("time.sleep", lambda s: None):
+            failed = self.scan_repo_with_readme(self.readme("[a](https://gone.org/a) [b](https://ok.org/b)"))
+        self.assertEqual(failed.get("links"), "1")
+        self.assertEqual(scan.DEAD_LINKS["r"], ["https://gone.org/a"])
+
+    def test_a_readme_with_only_working_links_or_none_is_not_reported(self):
+        with mock.patch.object(scan, "http_status", lambda u: 200):
+            self.assertNotIn("links", self.scan_repo_with_readme(self.readme("[b](https://ok.org/b)")))
+            self.assertNotIn("links", self.scan_repo_with_readme(self.readme("no links here")))
+            self.assertNotIn("links", self.scan_repo_with_readme(None))  # no README: the `readme` check reports that
+
+    def test_the_report_lists_the_dead_links_only_of_repositories_that_still_fail(self):
+        scan.DEAD_LINKS.update({"a": ["https://gone.org/1"], "b": ["https://gone.org/2"]})
+        state = {c: {} for c in scan.CHECKS}
+        state["links"] = {"a": "1"}  # "b" has an exception
+        body = scan.render(state, {}, [], {}, 2)
+        self.assertIn("https://gone.org/1", body)
+        self.assertNotIn("https://gone.org/2", body)

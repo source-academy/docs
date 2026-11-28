@@ -10,15 +10,20 @@ added only when something is newly failing, so a quiet month is silent.
 """
 
 import argparse
+import base64
+import concurrent.futures
 import datetime as dt
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
 import tomllib
+import urllib.error
 import urllib.parse
+import urllib.request
 
 ORG = "source-academy"
 DUTY_HOLDER = "martin-henz"  # assigned and mentioned every month; change on handover (see README)
@@ -42,6 +47,7 @@ CHECKS = {
     "inactive": "No push for over a year (archive, or say who maintains it)",
     "empty": "Empty repository, no commits (delete it, or push something)",
     "cache": "Actions cache above 80% of its limit (builds slow down when it is evicted; see the cleanup workflow)",
+    "links": "README with dead links (a link that answers 404 or 410, or whose host does not exist)",
 }
 MAX_BRANCHES = 30
 DEFAULT_CACHE_LIMIT_BYTES = 10 * 2**30  # the default size of a repository's Actions cache
@@ -133,6 +139,76 @@ def cache_usage(r, token):
     return usage["active_caches_size_in_bytes"], cache_limit_bytes(r, token)
 
 
+# Links in READMEs. The network is noisy, so only a definite sign counts as dead: the answer 404 or 410, or a host
+# that does not exist, twice in a row. A site that refuses automated clients (403, 429), a timeout, a TLS error or a
+# server error is not reported: if the page is really gone, a later scan finds it. (This differs on purpose from the
+# calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
+# unreachable site says nothing about a link.)
+LINK = re.compile(r"""https?://[^\s<>"'`)\]]+""")
+LINK_SKIP = re.compile(r"^https?://(localhost\b|127\.|0\.0\.0\.0|example\.(com|org)\b|your-)|[{}$]", re.I)
+LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
+DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
+
+
+def readme_links(text):
+    """The absolute links of a README, without the placeholders of examples."""
+    found = set()
+    for m in LINK.findall(text):
+        url = m.rstrip(".,;:!?*_").split("#")[0]
+        if url and not LINK_SKIP.search(url):
+            found.add(url)
+    return sorted(found)
+
+
+def http_status(url, timeout=15):
+    """The HTTP status of a URL (redirects followed); "dns" for a host that does not exist; None for any other failure
+    (timeout, TLS...). A refused or mis-answered HEAD is asked again with GET."""
+    def ask(method):
+        req = urllib.request.Request(url, method=method, headers={"User-Agent": "source-academy-health-scan"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+        except urllib.error.URLError as e:
+            return "dns" if isinstance(e.reason, socket.gaierror) else None
+        except Exception:
+            return None
+    status = ask("HEAD")
+    if status == "dns" or (isinstance(status, int) and status < 400):
+        return status
+    return ask("GET")
+
+
+def is_dead(url, fetch=None, sleep=time.sleep):
+    """True only if the link answers 404 or 410, or its host does not exist, on two tries."""
+    fetch = fetch or http_status
+    for attempt in range(2):
+        if fetch(url) not in (404, 410, "dns"):
+            return False
+        if attempt == 0:
+            sleep(2)
+    return True
+
+
+def dead_links(text):
+    """The dead links of a README text."""
+    urls = readme_links(text)
+    todo = [u for u in urls if u not in LINK_CACHE]
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        for u, dead in zip(todo, pool.map(is_dead, todo)):
+            LINK_CACHE[u] = dead
+    return [u for u in urls if LINK_CACHE[u]]
+
+
+def readme_text(r, token):
+    """The README of a repository, or None if it has none."""
+    data = gh(f"{r}/readme", token, absent=(404,))
+    if not isinstance(data, dict) or data.get("encoding") != "base64":
+        return None
+    return base64.b64decode(data.get("content", "")).decode("utf-8", "replace")
+
+
 def scan_repo(repo, token):
     """The failing checks of one repository, each with a short detail."""
     name, default = repo["name"], repo["default_branch"]
@@ -175,6 +251,11 @@ def scan_repo(repo, token):
         latest = gh(f"{r}/commits?sha={ref}&per_page=1", token, absent=(409,))  # 409: no commits
         if latest and days(latest[0]["commit"]["committer"]["date"]) > INACTIVE_DAYS:
             failed["inactive"] = f"{days(latest[0]['commit']['committer']['date']) // 30} months"
+    text = readme_text(r, token)
+    dead = dead_links(text) if text else []
+    if dead:
+        failed["links"] = str(len(dead))
+        DEAD_LINKS[name] = dead
     cache = cache_usage(r, token)
     if cache is not None and cache[0] > CACHE_WARN * cache[1]:
         failed["cache"] = f"{cache[0] / 2**30:.1f} of {cache[1] // 2**30} GB"
@@ -214,6 +295,10 @@ def render(state, exceptions_used, expired, changes, repos_total):
             continue
         items = ", ".join(f"`{r}`" + (f" ({d})" if d else "") for r, d in sorted(repos.items()))
         lines += ["", f"<details><summary><b>{title}</b>: {len(repos)}</summary>", "", items, "", "</details>"]
+    listed = {r: urls for r, urls in sorted(DEAD_LINKS.items()) if r in state.get("links", {})}
+    if listed:
+        lines += ["", "<details><summary><b>Dead links in READMEs</b></summary>", ""]
+        lines += [f"- `{r}`: " + ", ".join(urls) for r, urls in listed.items()] + ["", "</details>"]
     if exceptions_used:
         lines += ["", "<details><summary><b>Exceptions in force</b></summary>", ""]
         lines += [f"- `{r}` / {c}: {why}" for (r, c), why in sorted(exceptions_used.items())] + ["", "</details>"]

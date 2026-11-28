@@ -145,30 +145,37 @@ def cache_usage(r, token):
 # calls to GitHub above, whose failure stops the scan: there a failure says nothing about the repository, here an
 # unreachable site says nothing about a link.)
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
-CODE = re.compile(r"```.*?(?:```|\Z)|~~~.*?(?:~~~|\Z)|`[^`\n]+`", re.S)  # examples and commands, not links that a reader follows
+CODE = re.compile(  # examples and commands, not links that a reader follows
+    r"(?P<b>`{3,}).*?(?:(?P=b)`*|\Z)|(?P<t>~{3,}).*?(?:(?P=t)~*|\Z)|`[^`\n]+`", re.S)
 LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
 LINK_SKIP = re.compile(
-    r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)|[{}$]", re.I)
+    r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)"
+    r"|\{[^}]*\}|\$\{",  # {id} and ${VAR}: a template, not an address
+    re.I)
 ANGLE = re.compile(r"<(https?://[^\s<>]+)>")  # an autolink
-ATTR = re.compile(r"""(?:href|src)=["'](https?://[^"'\s]+)["']""", re.I)  # an HTML attribute
+ATTR = re.compile(r"""(?:href|src)\s*=\s*(?:"(https?://[^"\s]+)"|'(https?://[^'\s]+)'|(https?://[^\s"'<>`]+))""", re.I)  # an HTML attribute
 NO_SUCH_HOST = {c for c in (getattr(socket, "EAI_NONAME", None), getattr(socket, "EAI_NODATA", None)) if c is not None}
 LINK_CACHE = {}  # url -> dead?, so that a link used in many READMEs is asked once
 DEAD_LINKS = {}  # repository -> its dead links, for the report (the state keeps only the counts)
 
 
 def strip_indented_code(text):
-    """Blanks the indented code blocks: lines indented by four spaces or a tab after a blank line. Not inside a list,
-    where such lines continue an item (a full Markdown parser would tell exactly; this errs towards keeping links)."""
-    out, prev_blank, in_list = [], True, False
+    """Blanks the indented code blocks: lines indented by four spaces or a tab after a blank line, and the indented
+    lines that follow, until a line that is not indented. Not inside a list, where such lines continue an item (a full
+    Markdown parser would tell exactly; this errs towards keeping links)."""
+    out, prev_blank, in_list, in_code = [], True, False, False
     for line in text.split("\n"):
         if not line.strip():
             out.append(line)
             prev_blank = True
             continue
-        indent = len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip(" "))
+        expanded = line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(" "))
         if indent < 4:
-            in_list = bool(LIST_ITEM.match(line))
-        out.append("" if prev_blank and indent >= 4 and not in_list else line)
+            in_list, in_code = bool(LIST_ITEM.match(line)), False
+        elif prev_blank and not in_list:
+            in_code = True
+        out.append("" if indent >= 4 and in_code else line)
         prev_blank = False
     return "\n".join(out)
 
@@ -180,7 +187,7 @@ def delimited_links(text):
     found = []
 
     def take(m):
-        found.append(m.group(1))
+        found.append(next(g for g in m.groups() if g))
         return " "
     text = ATTR.sub(take, ANGLE.sub(take, text))
     out, i = [], 0

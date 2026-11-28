@@ -368,6 +368,22 @@ class ReadmeLinks(unittest.TestCase):
                 "A paragraph\n    lazy continuation [three](https://three.org/c)\n")
         self.assertEqual(scan.readme_links(text), ["https://one.org/a", "https://three.org/c", "https://two.org/b"])
 
+    def test_every_line_of_an_indented_block_is_code(self):
+        text = "Intro\n\n    echo example\n    https://dead.example.org/x\n\n    https://also-code.org/y\n\nThen [real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_longer_fence_is_closed_only_by_a_fence_as_long(self):
+        text = "````md\n```sh\ncurl https://inside.org/a\n```\nstill code https://inside.org/b\n````\n[real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_a_dollar_sign_is_a_valid_url_character_only_template_syntax_is_a_placeholder(self):
+        self.assertEqual(scan.readme_links("[a](https://h.org/api/$metadata) [b](https://h.org/{id}) [c](https://h.org/${VAR}/x)"),
+                         ["https://h.org/api/$metadata"])
+
+    def test_html_attributes_may_have_spaces_around_the_equals_sign_and_other_quotes(self):
+        text = """<a href = "https://a.org/page_">a</a> <a href='https://b.org/p_'>b</a> <img src=https://c.org/i_.png>"""
+        self.assertEqual(scan.readme_links(text), ["https://a.org/page_", "https://b.org/p_", "https://c.org/i_.png"])
+
     def ask_with(self, reason):
         import urllib.error
         def urlopen(req, timeout=0):

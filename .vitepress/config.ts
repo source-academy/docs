@@ -59,6 +59,30 @@ export default defineConfig({
             },
           ],
         },
+        {
+          text: "Architecture",
+          items: [
+            { text: "Overview", link: "/developer/architecture/" },
+            { text: "Frontend", link: "/developer/architecture/frontend" },
+            { text: "Backend", link: "/developer/architecture/backend" },
+            { text: "Grader", link: "/developer/architecture/grader" },
+            {
+              text: "Directories",
+              link: "/developer/architecture/directories",
+            },
+            { text: "Conductor", link: "/developer/architecture/conductor" },
+            { text: "Evaluators", link: "/developer/architecture/evaluators" },
+            {
+              text: "Plugins and modules",
+              link: "/developer/architecture/plugins-and-modules",
+            },
+            { text: "Deployment", link: "/developer/architecture/deployment" },
+            {
+              text: "A run and a submission",
+              link: "/developer/architecture/run-and-submission",
+            },
+          ],
+        },
       ],
       "/educator/": [
         {

@@ -5,6 +5,8 @@ export default defineConfig({
   description: "Documentation for Source Academy",
 
   lang: "en-US",
+  // Published at https://docs.sourceacademy.org/developers/ (see .github/workflows/deploy.yml).
+  base: "/developers/",
   cleanUrls: true,
   srcDir: "app",
   outDir: "dist",
@@ -15,7 +17,11 @@ export default defineConfig({
   head: [
     [
       "link",
-      { rel: "icon", type: "image/x-icon", href: "/img/sourcepower.ico" },
+      {
+        rel: "icon",
+        type: "image/x-icon",
+        href: "/developers/img/sourcepower.ico",
+      },
     ],
   ],
 

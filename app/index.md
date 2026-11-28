@@ -46,7 +46,7 @@ hero:
   gap: 16px;
   margin: 16px 0 32px;
 }
-.landing-card {
+.vp-doc a.landing-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -55,13 +55,18 @@ hero:
   border-radius: 8px;
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-1);
+  font-weight: 400;
   text-decoration: none;
   transition: border-color 0.2s;
 }
-.landing-card:hover {
+.vp-doc a.landing-card:hover {
   border-color: var(--vp-c-brand-1);
 }
-.landing-card span {
+.vp-doc a.landing-card strong {
+  color: var(--vp-c-text-1);
+  font-weight: 600;
+}
+.vp-doc a.landing-card span {
   color: var(--vp-c-text-2);
   font-size: 14px;
   line-height: 1.5;

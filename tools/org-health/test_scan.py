@@ -372,6 +372,14 @@ class ReadmeLinks(unittest.TestCase):
         text = "Intro\n\n    echo example\n    https://dead.example.org/x\n\n    https://also-code.org/y\n\nThen [real](https://real.org/r)"
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
 
+    def test_a_closing_fence_is_alone_on_its_line(self):
+        text = "```sh\n```not-a-close\nhttps://inside.org/a\n```  \n[real](https://real.org/r)"
+        self.assertEqual(scan.readme_links(text), ["https://real.org/r"])
+
+    def test_character_references_in_attributes_and_destinations_are_decoded(self):
+        text = '<a href="https://h.org/a&amp;b">x</a> [y](https://h.org/c&amp;d) <https://h.org/e&amp;f>'
+        self.assertEqual(scan.readme_links(text), ["https://h.org/a&b", "https://h.org/c&d", "https://h.org/e&amp;f"])
+
     def test_a_longer_fence_is_closed_only_by_a_fence_as_long(self):
         text = "````md\n```sh\ncurl https://inside.org/a\n```\nstill code https://inside.org/b\n````\n[real](https://real.org/r)"
         self.assertEqual(scan.readme_links(text), ["https://real.org/r"])

@@ -13,6 +13,7 @@ import argparse
 import base64
 import concurrent.futures
 import datetime as dt
+import html
 import json
 import os
 import re
@@ -146,7 +147,7 @@ def cache_usage(r, token):
 # unreachable site says nothing about a link.)
 LINK = re.compile(r"""https?://[^\s<>"'`\[\]]+""")
 CODE = re.compile(  # examples and commands, not links that a reader follows
-    r"(?P<b>`{3,}).*?(?:(?P=b)`*|\Z)|(?P<t>~{3,}).*?(?:(?P=t)~*|\Z)|`[^`\n]+`", re.S)
+    r"^[ \t]*(?P<f>`{3,}|~{3,})[^\n]*\n.*?(?:^[ \t]*(?P=f)[`~]*[ \t]*$|\Z)|`[^`\n]+`", re.S | re.M)
 LIST_ITEM = re.compile(r"\s*(?:[-*+]|\d+[.)])\s")
 LINK_SKIP = re.compile(
     r"^https?://(?:localhost|127(?:\.\d{1,3}){3}|0\.0\.0\.0|example\.(?:com|org)|your-[^/:?#]*)(?=[:/?#]|$)"
@@ -189,7 +190,11 @@ def delimited_links(text):
     def take(m):
         found.append(next(g for g in m.groups() if g))
         return " "
-    text = ATTR.sub(take, ANGLE.sub(take, text))
+
+    def take_attr(m):
+        found.append(html.unescape(next(g for g in m.groups() if g)))  # href="…a&amp;b" is …a&b
+        return " "
+    text = ATTR.sub(take_attr, ANGLE.sub(take, text))
     out, i = [], 0
     while True:
         j = text.find("](http", i)
@@ -206,7 +211,7 @@ def delimited_links(text):
                     break
                 depth -= 1
             k += 1
-        found.append(text[j + 2:k])
+        found.append(html.unescape(text[j + 2:k]))
         out.append(" ")
         i = k + 1
     return found, "".join(out)
